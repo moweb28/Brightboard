@@ -3,10 +3,10 @@ import { formatRoomCode } from '@classroom/protocol';
 export const APP_PROTOCOL = 'brightboard';
 
 /** The page a student lands on from an invite link. Tries to open the app, with a download fallback. */
-export function invitePage(code: string | null, downloadUrl: string): string {
+export function invitePage(code: string | null, downloadUrl: string, title?: string): string {
   const appLink = code ? `${APP_PROTOCOL}://join/${code}` : '';
   const body = code
-    ? `<h1>Join class <span class="code">${formatRoomCode(code)}</span></h1>
+    ? `<h1>${title ? escapeHtml(title) : 'Join class'} <span class="code">${formatRoomCode(code)}</span></h1>
        <p>Opening Brightboard… <span dir="rtl">جارٍ فتح Brightboard…</span></p>
        <a class="btn" href="${appLink}">Open Brightboard</a>
        <p class="small">Don't have the app yet? <a href="${downloadUrl}">Download Brightboard</a></p>
@@ -25,4 +25,8 @@ export function invitePage(code: string | null, downloadUrl: string): string {
   a{color:#4f46e5}
 </style></head>
 <body><main><div class="logo">☀ Brightboard</div>${body}</main></body></html>`;
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 }

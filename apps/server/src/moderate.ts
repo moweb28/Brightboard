@@ -1,0 +1,99 @@
+import type { ModerateAction, ParticipantMeta } from '@classroom/protocol';
+import type { FastifyInstance } from 'fastify';
+import { HttpError, type Auth } from './auth';
+import type { ClassStore } from './classStore';
+import type { Db } from './db';
+import { sourcesFor, type RoomControl, type RoomParticipant } from './roomControl';
+
+const parseMeta = (p: RoomParticipant): ParticipantMeta => {
+  try {
+    return JSON.parse(p.metadata) as ParticipantMeta;
+  } catch {
+    return { role: 'student' };
+  }
+};
+
+const ACTIONS = ['mute', 'stopVideo', 'remove', 'admit', 'muteAll', 'admitAll', 'allowShare', 'lock', 'chat', 'spotlight'];
+
+export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store: ClassStore, rc: RoomControl) {
+  app.post<{ Params: { id: string }; Body: ModerateAction }>(
+    '/classes/:id/moderate',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['action'],
+          properties: { action: { enum: ACTIONS }, identity: { type: ['string', 'null'], maxLength: 64 }, value: { type: 'boolean' } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const teacher = await auth.requireUser(req);
+      const c = store.findOwned(Number(req.params.id), teacher.id);
+      if (!store.openSession(c.id)) throw new HttpError(409, 'Class is not live', 'notLive');
+      const body = req.body;
+      const participants = await rc.listParticipants(c.code);
+      const students = participants.filter((p) => parseMeta(p).role !== 'teacher');
+
+      const target = () => {
+        const identity = 'identity' in body ? body.identity : null;
+        const p = participants.find((x) => x.identity === identity);
+        if (!p) throw new HttpError(404, 'That person is no longer in the class', 'gone');
+        if (parseMeta(p).role === 'teacher') throw new HttpError(400, 'You cannot moderate yourself', 'self');
+        return p;
+      };
+      const muteSource = async (p: RoomParticipant, source: string) => {
+        for (const t of p.tracks.filter((t) => t.source === source)) await rc.muteTrack(c.code, p.identity, t.sid);
+      };
+      const admit = (p: RoomParticipant) =>
+        rc.updateParticipant(c.code, p.identity, JSON.stringify({ ...parseMeta(p), waiting: false }), {
+          canSubscribe: true,
+          canPublish: true,
+          canPublishData: true,
+          canUpdateMetadata: true,
+          canPublishSources: sourcesFor(!!c.students_can_share),
+        });
+      const updateClass = async (column: 'locked' | 'chat_enabled' | 'spotlight', value: number | string | null) => {
+        db.prepare(`UPDATE classes SET ${column} = ? WHERE id = ?`).run(value, c.id);
+        await rc.setRoomMetadata(c.code, JSON.stringify(store.roomMeta(store.byId(c.id)!)));
+      };
+
+      switch (body.action) {
+        case 'mute':
+          await muteSource(target(), 'MICROPHONE');
+          break;
+        case 'stopVideo':
+          await muteSource(target(), 'CAMERA');
+          break;
+        case 'remove':
+          await rc.removeParticipant(c.code, target().identity);
+          break;
+        case 'admit':
+          await admit(target());
+          break;
+        case 'muteAll':
+          for (const p of students) await muteSource(p, 'MICROPHONE');
+          break;
+        case 'admitAll':
+          for (const p of students.filter((p) => parseMeta(p).waiting)) await admit(p);
+          break;
+        case 'allowShare': {
+          const p = target();
+          await rc.updateParticipant(c.code, p.identity, undefined, { canPublishSources: sourcesFor(body.value) });
+          break;
+        }
+        case 'lock':
+          await updateClass('locked', Number(body.value));
+          break;
+        case 'chat':
+          await updateClass('chat_enabled', Number(body.value));
+          break;
+        case 'spotlight':
+          if (body.identity) target();
+          await updateClass('spotlight', body.identity ?? null);
+          break;
+      }
+      reply.code(204);
+    },
+  );
+}
