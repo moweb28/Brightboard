@@ -1,11 +1,19 @@
 {
   "name": "classroom",
   "private": true,
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "test": "npm test --workspaces --if-present",
     "dev:livekit": "node scripts/get-livekit.mjs && node scripts/run-livekit.mjs",
     "dev:server": "npm run dev -w @classroom/server",
     "dev:desktop": "npm run dev -w @classroom/desktop"
+  },
+  "allowScripts": {
+    "electron@38.8.6": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.25.12": true
   }
 }
