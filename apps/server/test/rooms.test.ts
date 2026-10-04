@@ -1,21 +1,24 @@
 import { decodeJwt } from 'jose';
 import { describe, expect, it } from 'vitest';
 import { makeApp, registerTeacher } from './helpers';
-import { hashPassword } from '../src/password';
+
+const PASSWORD = '4821';
 
 async function setup() {
   const app = makeApp();
   const token = await registerTeacher(app);
-  const res = await app.inject({ method: 'POST', url: '/rooms', headers: { authorization: `Bearer ${token}` } });
+  const res = await app.inject({ method: 'POST', url: '/rooms', headers: { authorization: `Bearer ${token}` }, payload: { password: PASSWORD } });
   return { app, token, room: res.json() as { code: string; display: string }, status: res.statusCode };
 }
 
-const join = (app: Awaited<ReturnType<typeof setup>>['app'], code: string, name: unknown) =>
-  app.inject({ method: 'POST', url: `/rooms/${code}/join`, payload: { name } });
+type App = Awaited<ReturnType<typeof setup>>['app'];
+
+const join = (app: App, code: string, name: unknown, password: unknown = PASSWORD, ip = '10.0.0.1') =>
+  app.inject({ method: 'POST', url: `/rooms/${code}/join`, payload: { name, password }, remoteAddress: ip });
 
 describe('rooms', () => {
   it('requires login to create a room', async () => {
-    const res = await makeApp().inject({ method: 'POST', url: '/rooms' });
+    const res = await makeApp().inject({ method: 'POST', url: '/rooms', payload: { password: PASSWORD } });
     expect(res.statusCode).toBe(401);
   });
 
@@ -23,6 +26,16 @@ describe('rooms', () => {
     const { room, status } = await setup();
     expect(status).toBe(201);
     expect(room.display).toBe(`${room.code.slice(0, 3)}-${room.code.slice(3)}`);
+  });
+
+  it('requires a class password of 4–32 characters', async () => {
+    const app = makeApp();
+    const token = await registerTeacher(app);
+    const create = (password: unknown) =>
+      app.inject({ method: 'POST', url: '/rooms', headers: { authorization: `Bearer ${token}` }, payload: { password } });
+    expect((await create('123')).statusCode).toBe(400);
+    expect((await create('x'.repeat(33))).statusCode).toBe(400);
+    expect((await create(undefined)).statusCode).toBe(400);
   });
 
   it('lets a student join with a lowercase dashed code, without admin rights', async () => {
@@ -37,6 +50,20 @@ describe('rooms', () => {
     expect(claims.video.roomJoin).toBe(true);
     expect(claims.video.room).toBe(room.code);
     expect(claims.video.roomAdmin).toBeFalsy();
+  });
+
+  it('rejects a wrong class password', async () => {
+    const { app, room } = await setup();
+    const res = await join(app, room.code, 'Ali', '0000');
+    expect(res.statusCode).toBe(401);
+    expect(res.json().message).toMatch(/password/i);
+  });
+
+  it('blocks an address after 10 wrong passwords but not others', async () => {
+    const { app, room } = await setup();
+    for (let i = 0; i < 10; i++) await join(app, room.code, 'Ali', 'wrong', '10.0.0.9');
+    expect((await join(app, room.code, 'Ali', PASSWORD, '10.0.0.9')).statusCode).toBe(429);
+    expect((await join(app, room.code, 'Ali', PASSWORD, '10.0.0.2')).statusCode).toBe(200);
   });
 
   it('gives students with the same name different identities', async () => {
@@ -69,11 +96,26 @@ describe('rooms', () => {
 
   it("refuses to host another teacher's room", async () => {
     const { app, room } = await setup();
-    // Registration is closed after the first teacher, so add a second one directly.
-    const db = (app as unknown as { classroomDb: import('../src/db').Db }).classroomDb;
-    db.prepare('INSERT INTO teachers (email, password_hash) VALUES (?, ?)').run('other@example.com', await hashPassword('password123'));
-    const login = await app.inject({ method: 'POST', url: '/auth/login', payload: { email: 'other@example.com', password: 'password123' } });
-    const res = await app.inject({ method: 'POST', url: `/rooms/${room.code}/host`, headers: { authorization: `Bearer ${login.json().token}` } });
+    const other = await registerTeacher(app, 'other@example.com');
+    const res = await app.inject({ method: 'POST', url: `/rooms/${room.code}/host`, headers: { authorization: `Bearer ${other}` } });
     expect(res.statusCode).toBe(403);
+  });
+});
+
+describe('invite link page', () => {
+  it('serves a page that opens the app for a valid code', async () => {
+    const { app, room } = await setup();
+    const res = await app.inject({ method: 'GET', url: `/j/${room.display.toLowerCase()}` });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.body).toContain(`brightboard://join/${room.code}`);
+    expect(res.body).toContain(room.display);
+  });
+
+  it('shows a friendly page for unknown codes', async () => {
+    const { app } = await setup();
+    const res = await app.inject({ method: 'GET', url: '/j/<script>' });
+    expect(res.statusCode).toBe(404);
+    expect(res.body).not.toContain('<script>');
   });
 });

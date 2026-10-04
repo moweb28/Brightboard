@@ -9,11 +9,14 @@ describe('auth', () => {
     expect(res.json().token).toBeTypeOf('string');
   });
 
-  it('refuses a second registration', async () => {
+  it('lets more teachers register, but not the same email twice', async () => {
     const app = makeApp();
     await registerTeacher(app);
-    const res = await app.inject({ method: 'POST', url: '/auth/register', payload: { email: 'x@y.com', password: 'password123' } });
-    expect(res.statusCode).toBe(403);
+    const other = await app.inject({ method: 'POST', url: '/auth/register', payload: { email: 'x@y.com', password: 'password123' } });
+    expect(other.statusCode).toBe(201);
+    const dup = await app.inject({ method: 'POST', url: '/auth/register', payload: { email: 'Teacher@Example.com', password: 'password123' } });
+    expect(dup.statusCode).toBe(409);
+    expect(dup.json().message).toMatch(/already/i);
   });
 
   it('rejects short passwords', async () => {

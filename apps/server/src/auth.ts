@@ -33,9 +33,8 @@ export function registerAuth(app: FastifyInstance, db: Db, cfg: Config) {
     new SignJWT({}).setProtectedHeader({ alg: 'HS256' }).setSubject(String(teacherId)).setExpirationTime('7d').sign(key);
 
   app.post<{ Body: Credentials }>('/auth/register', { schema: credentialsSchema }, async (req, reply) => {
-    const { count } = db.prepare('SELECT COUNT(*) AS count FROM teachers').get() as { count: number };
-    if (count > 0) throw new HttpError(403, 'Registration is closed');
     const email = req.body.email.trim().toLowerCase();
+    if (db.prepare('SELECT 1 FROM teachers WHERE email = ?').get(email)) throw new HttpError(409, 'This email already has an account. Log in instead.');
     const result = db.prepare('INSERT INTO teachers (email, password_hash) VALUES (?, ?)').run(email, await hashPassword(req.body.password));
     reply.code(201);
     return { token: await issue(Number(result.lastInsertRowid)) };

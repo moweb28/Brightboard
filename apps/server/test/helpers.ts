@@ -8,6 +8,7 @@ export const testConfig: Config = {
   livekitUrl: 'ws://localhost:7880',
   livekitApiKey: 'devkey',
   livekitApiSecret: 'secret-secret-secret-secret-secret',
+  downloadUrl: 'https://example.com/download',
 };
 
 export function makeApp() {

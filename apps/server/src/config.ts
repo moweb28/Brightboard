@@ -5,6 +5,8 @@ export interface Config {
   livekitUrl: string;
   livekitApiKey: string;
   livekitApiSecret: string;
+  /** Where the invite page sends students who do not have the app yet. */
+  downloadUrl: string;
 }
 
 export function loadConfig(env = process.env): Config {
@@ -17,5 +19,6 @@ export function loadConfig(env = process.env): Config {
     livekitUrl: env.LIVEKIT_URL ?? 'ws://localhost:7880',
     livekitApiKey: env.LIVEKIT_API_KEY ?? 'devkey',
     livekitApiSecret: env.LIVEKIT_API_SECRET ?? 'secret',
+    downloadUrl: env.DOWNLOAD_URL ?? 'https://github.com/',
   };
 }
