@@ -1,53 +1,67 @@
-import { formatRoomCode, normalizeRoomCode, type JoinInfo } from '@classroom/protocol';
-import { useState } from 'react';
+import { extractRoomCode, formatRoomCode, type JoinInfo } from '@classroom/protocol';
+import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { ErrorText, Field, Heading } from '../components/bits';
+import { Shell } from '../components/Shell';
+import { useI18n } from '../i18n';
 import { useAsync } from './useAsync';
 
 const NAME_KEY = 'studentName';
 
-export function Home({ onJoined, onTeacher }: { onJoined: (j: JoinInfo) => void; onTeacher: () => void }) {
-  const [code, setCode] = useState('');
+export function Home({ initialCode, onJoined, onTeacher }: { initialCode?: string; onJoined: (j: JoinInfo) => void; onTeacher: () => void }) {
+  const { t } = useI18n();
+  const [codeInput, setCodeInput] = useState(initialCode ? formatRoomCode(initialCode) : '');
   const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) ?? '');
-  const { busy, error, run } = useAsync();
-  const normalized = normalizeRoomCode(code);
+  const [password, setPassword] = useState('');
+  const { busy, error, setError, run } = useAsync();
 
+  useEffect(() => {
+    if (initialCode) setCodeInput(formatRoomCode(initialCode));
+  }, [initialCode]);
+
+  const code = extractRoomCode(codeInput);
+
+  // Pasting a full invite link turns it into the short code.
   const onCodeChange = (value: string) => {
-    const raw = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-    setCode(raw.length > 3 ? formatRoomCode(raw) : raw);
+    const fromLink = /[/:]/.test(value) ? extractRoomCode(value) : null;
+    setCodeInput(fromLink ? formatRoomCode(fromLink) : value.toUpperCase());
   };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!normalized || !name.trim()) return;
+    if (!code) return setError('badCode');
     run(async () => {
       localStorage.setItem(NAME_KEY, name.trim());
-      onJoined(await api.join(normalized, name.trim()));
+      onJoined(await api.join(code, name.trim(), password));
     });
   };
 
   return (
-    <main className="center">
-      <div className="card">
-        <h1>Join your class</h1>
-        <p className="muted">Enter the code your teacher gave you.</p>
-        <form onSubmit={submit} className="stack">
-          <label>
-            Class code
-            <input className="code-input" value={code} onChange={(e) => onCodeChange(e.target.value)} placeholder="ABC-123" autoFocus spellCheck={false} />
-          </label>
-          <label>
-            Your name
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="e.g. Sara Ahmed" />
-          </label>
-          {error && <p className="error" role="alert">{error}</p>}
-          <button className="primary" disabled={busy || !normalized || !name.trim()}>
-            {busy ? 'Joining…' : 'Join class'}
-          </button>
-        </form>
-      </div>
-      <button className="link" onClick={onTeacher}>
-        I'm the teacher →
+    <Shell>
+      <Heading title={t.joinTitle} subtitle={t.joinSubtitle} />
+      <form onSubmit={submit} className="form">
+        <Field
+          label={t.classCode}
+          className="code-input"
+          dir="ltr"
+          value={codeInput}
+          onChange={(e) => onCodeChange(e.target.value)}
+          placeholder={t.codePlaceholder}
+          spellCheck={false}
+          autoFocus={!initialCode}
+          required
+        />
+        <Field label={t.yourName} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder={t.namePlaceholder} required autoFocus={!!initialCode} />
+        <Field label={t.classPassword} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <ErrorText error={error} />
+        <button className="btn btn-primary" disabled={busy || !name.trim() || !password}>
+          {busy ? t.joining : t.joinButton}
+        </button>
+      </form>
+      <div className="divider" />
+      <button className="btn btn-ghost" onClick={onTeacher}>
+        🎓 {t.imTeacher}
       </button>
-    </main>
+    </Shell>
   );
 }

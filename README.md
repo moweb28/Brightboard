@@ -1,6 +1,6 @@
-# Classroom
+# Brightboard
 
-A free, simple desktop app for live classes: video, audio, screen share, chat. Teacher controls, local recording and remote control are coming next.
+A free, simple desktop app for live classes (English + العربية): video, audio, screen share, chat. Teacher controls, local recording and remote control are coming next.
 
 ## Run it locally (Windows/Mac)
 
@@ -13,9 +13,9 @@ npm run dev:server    # class server on http://localhost:4000
 npm run dev:desktop   # opens the app
 ```
 
-1. In the app: **I'm the teacher → First time? Create the teacher account** (only the first account can be created).
-2. **Start a new class** and copy the code.
-3. Open a second app window (run `npm run dev:desktop` again or use another computer), choose **Join class**, enter the code and a name.
+1. In the app: **I'm a teacher → New here? Create a teacher account** (or use the test account below).
+2. Pick a class password and **Start class**, then click **Invite → Copy invitation**.
+3. Students click the link (it opens Brightboard with the code filled in) or paste it into the code box, then enter their name and the class password.
 
 ## Testing with other computers on your network
 
@@ -35,7 +35,8 @@ npm test
 
 ## Development notes
 
-- Dev test teacher account (created during development, local DB only): `dev@local.test` / `devpassword1`.
-  Delete `apps/server/classroom.db` (while the server is stopped) to start fresh and create your own.
+- Test teacher account (local dev database only): `dev@local.test` / `devpassword1`. Any number of teacher accounts can be created.
+- Invite links look like `http://<server>/j/K7P-2QX` and open the app via `brightboard://join/K7P2QX`. Set `DOWNLOAD_URL` on the server for the "Download" button.
+- App icon source: `apps/desktop/build/icon.svg` (regenerate PNG/ICO with `node apps/desktop/build/make-icons.mjs`).
 - Design spec: `docs/superpowers/specs/2026-10-04-classroom-meetings-design.md`
 - Current plan: `docs/superpowers/plans/2026-10-04-core-meeting.md`
