@@ -32,7 +32,8 @@ export function registerJoin(app: FastifyInstance, db: Db, cfg: Config, auth: Au
     if (name.length === 0 || name.length > MAX_NAME) throw new HttpError(400, `Name must be 1–${MAX_NAME} characters`, 'badName');
 
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
-    if (password !== c.join_password) {
+    const enrolled = user && db.prepare('SELECT 1 FROM enrollments WHERE class_id = ? AND user_id = ?').get(c.id, user.id);
+    if (!enrolled && password !== c.join_password) {
       wrongPasswords.fail(limiterKey);
       throw new HttpError(401, 'Wrong class password', 'wrongPassword');
     }

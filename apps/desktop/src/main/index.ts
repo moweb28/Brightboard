@@ -9,6 +9,8 @@ const ALLOWED_PERMISSIONS = new Set(['media', 'display-capture', 'clipboard-sani
 let mainWindow: BrowserWindow | null = null;
 /** A class code from a brightboard:// link that the renderer has not picked up yet. */
 let pendingJoinCode: string | null = null;
+/** The screen/window the user confirmed in our share picker; used once by the next share request. */
+let selectedScreenSource: string | null = null;
 
 app.setName('Brightboard');
 
@@ -44,14 +46,31 @@ if (!app.requestSingleInstanceLock()) {
 
     session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(ALLOWED_PERMISSIONS.has(permission)));
 
-    // Screen share: use the OS picker where available, otherwise share the primary screen.
-    session.defaultSession.setDisplayMediaRequestHandler(
-      async (_request, callback) => {
-        const [screen] = await desktopCapturer.getSources({ types: ['screen'] });
-        callback(process.platform === 'win32' ? { video: screen, audio: 'loopback' } : { video: screen });
-      },
-      { useSystemPicker: true },
-    );
+    ipcMain.handle('screen:sources', async () => {
+      const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 400, height: 225 }, fetchWindowIcons: true });
+      return sources
+        .filter((s) => s.name !== 'Brightboard')
+        .map((s) => ({
+          id: s.id,
+          name: s.name,
+          kind: s.id.startsWith('screen:') ? 'screen' : 'window',
+          thumbnail: s.thumbnail.toDataURL(),
+          icon: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : null,
+        }));
+    });
+    ipcMain.handle('screen:select', (_e, id: string) => {
+      selectedScreenSource = typeof id === 'string' ? id : null;
+    });
+
+    // Screen share only proceeds with a source the user confirmed in our picker.
+    session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+      const id = selectedScreenSource;
+      selectedScreenSource = null;
+      const source = id && (await desktopCapturer.getSources({ types: ['screen', 'window'] })).find((s) => s.id === id);
+      if (!source) return callback({});
+      const wantsAudio = request.audioRequested && process.platform === 'win32';
+      callback(wantsAudio ? { video: source, audio: 'loopback' } : { video: source });
+    });
 
     createWindow();
     app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());

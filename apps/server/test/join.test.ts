@@ -82,6 +82,16 @@ describe('joining a class', () => {
     expect(list[0].joinPassword).toBeUndefined();
   });
 
+  it('lets enrolled students rejoin without the password', async () => {
+    const { app, c } = await liveClass();
+    const s = await register(app, 'student', 's@x.com');
+    await join(app, c.code, {}, bearer(s));
+    const again = await join(app, c.code, { password: '' }, bearer(s));
+    expect(again.statusCode).toBe(200);
+    const stranger = await register(app, 'student', 'z@x.com');
+    expect((await join(app, c.code, { password: '' }, bearer(stranger))).statusCode).toBe(401);
+  });
+
   it('records attendance for the session', async () => {
     const { app, teacher, c } = await liveClass();
     await join(app, c.code, { name: 'Sara' });
