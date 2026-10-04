@@ -1,0 +1,11 @@
+{
+  "name": "classroom",
+  "private": true,
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "dev:livekit": "node scripts/get-livekit.mjs && node scripts/run-livekit.mjs",
+    "dev:server": "npm run dev -w @classroom/server",
+    "dev:desktop": "npm run dev -w @classroom/desktop"
+  }
+}
