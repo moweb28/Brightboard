@@ -12,7 +12,7 @@ import { RoomView } from './RoomView';
 
 type Phase = { name: 'prejoin' } | { name: 'live'; choices: JoinChoices } | { name: 'ended'; reason?: DisconnectReason };
 
-export function Meeting({ join, inviteCode, invitePassword }: { join: JoinInfo; inviteCode?: string; invitePassword?: string }) {
+export function Meeting({ join, invitePassword }: { join: JoinInfo; invitePassword?: string }) {
   const { settings } = useSettings();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ export function Meeting({ join, inviteCode, invitePassword }: { join: JoinInfo; 
       onDisconnected={(reason) => setPhase({ name: 'ended', reason })}
       className="meeting"
     >
-      <RoomView join={join} choices={phase.choices} inviteCode={inviteCode ?? join.roomName} invitePassword={invitePassword} />
+      <RoomView join={join} choices={phase.choices} invitePassword={invitePassword} />
       <RoomAudioRenderer />
     </LiveKitRoom>
   );
@@ -55,7 +55,7 @@ export function Meeting({ join, inviteCode, invitePassword }: { join: JoinInfo; 
 function Ended({ reason, onHome }: { reason?: DisconnectReason; onHome: () => void }) {
   const t = useT();
   const text =
-    reason === DisconnectReason.ROOM_DELETED ? t.meeting.classEnded : reason === DisconnectReason.PARTICIPANT_REMOVED ? t.meeting.removed : t.meeting.disconnected;
+    reason === DisconnectReason.ROOM_DELETED ? t.meeting.ended : reason === DisconnectReason.PARTICIPANT_REMOVED ? t.meeting.removed : t.meeting.disconnected;
   const Icon = reason === DisconnectReason.PARTICIPANT_REMOVED ? UserMinus : DoorOpen;
   return (
     <div className="center-screen">

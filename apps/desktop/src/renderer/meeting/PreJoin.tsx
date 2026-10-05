@@ -33,8 +33,8 @@ export function PreJoin({ join, onJoin, onCancel }: { join: JoinInfo; onJoin: (c
           <DeviceCheck name={name || '?'} color={color} camOn={cam} micOn={mic} onToggleCam={() => setCam(!cam)} onToggleMic={() => setMic(!mic)} />
         </div>
         <aside className="prejoin-side card card-pad">
-          <Badge tone="accent">{join.role === 'teacher' ? t.common.teacher : t.common.student}</Badge>
-          <h1>{join.classTitle}</h1>
+          <Badge tone="accent">{join.spaceEmoji} {t.kinds[join.kind].name}</Badge>
+          <h1>{join.spaceTitle}</h1>
           <h2 className="muted">{t.meeting.prejoinTitle}</h2>
           <p className="muted">{t.meeting.prejoinSubtitle}</p>
           <Button size="lg" icon={Video} block onClick={() => onJoin({ mic, cam })} autoFocus>

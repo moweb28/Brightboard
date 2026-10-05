@@ -1,5 +1,4 @@
-import type { Role } from '@classroom/protocol';
-import { ArrowLeft, Backpack, GraduationCap } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { AuthLayout } from '../components/layout';
 import { Button, ErrorText, Field } from '../components/ui';
@@ -14,21 +13,12 @@ export function Auth({ mode }: { mode: 'login' | 'register' }) {
   const auth = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<Role>('teacher');
   const { busy, error, setError, run } = useAsync();
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    run(async () => {
-      if (mode === 'login') await auth.login(email, password);
-      else await auth.register(email, password, role);
-    });
+    run(() => (mode === 'login' ? auth.login(email, password) : auth.register(email, password)));
   };
-
-  const roles: { value: Role; icon: typeof GraduationCap; label: string; desc: string }[] = [
-    { value: 'teacher', icon: GraduationCap, label: t.common.teacher, desc: t.auth.teacherDesc },
-    { value: 'student', icon: Backpack, label: t.common.student, desc: t.auth.studentDesc },
-  ];
 
   return (
     <AuthLayout>
@@ -40,22 +30,6 @@ export function Auth({ mode }: { mode: 'login' | 'register' }) {
         <p className="muted">{mode === 'login' ? t.auth.loginSubtitle : t.auth.registerSubtitle}</p>
       </header>
       <form onSubmit={submit} className="stack">
-        {mode === 'register' && (
-          <div className="field">
-            <span className="field-label">{t.auth.iAmA}</span>
-            <div className="role-cards" role="radiogroup">
-              {roles.map(({ value, icon: Icon, label, desc }) => (
-                <button type="button" key={value} role="radio" aria-checked={role === value} className={`role-card ${role === value ? 'is-active' : ''}`} onClick={() => setRole(value)}>
-                  <span className="role-icon">
-                    <Icon size={22} />
-                  </span>
-                  <strong>{label}</strong>
-                  <span className="muted small">{desc}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <Field label={t.auth.email} type="email" dir="ltr" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus required />
         <Field
           label={t.auth.password}

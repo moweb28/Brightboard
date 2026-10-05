@@ -1,41 +1,40 @@
-import { AVATAR_COLORS } from '@classroom/protocol';
-import { ArrowLeft, ArrowRight, LayoutDashboard, Link2, PartyPopper, Plus } from 'lucide-react';
+import { AVATAR_COLORS, USE_CASES, type UseCase } from '@classroom/protocol';
+import { ArrowLeft, ArrowRight, Briefcase, Check, GraduationCap, House, PartyPopper, Sparkles, Ticket, Video, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { LanguagePicker, ScenePicker, ThemePicker } from '../components/AppearancePicker';
 import { DeviceCheck } from '../components/DeviceCheck';
 import { Logo, QuickPrefs } from '../components/layout';
 import { Avatar, Button, ColorPicker, ErrorText, Field } from '../components/ui';
+import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useNavigate } from '../lib/nav';
 import { useT } from '../lib/settings';
 import { useAsync } from '../lib/useAsync';
 
 const STEPS = 5;
+export const USE_CASE_ICONS: Record<UseCase, LucideIcon> = { friends: House, work: Briefcase, school: GraduationCap, events: Ticket };
 
 export function Onboarding() {
   const t = useT();
   const { user, update } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [profile, setProfile] = useState({
-    displayName: user?.displayName ?? '',
-    avatarColor: user?.avatarColor ?? AVATAR_COLORS[0],
-    school: user?.school ?? '',
-    subject: user?.subject ?? '',
-    grade: user?.grade ?? '',
-  });
+  const [displayName, setDisplayName] = useState(user?.displayName ?? '');
+  const [avatarColor, setAvatarColor] = useState(user?.avatarColor ?? AVATAR_COLORS[0]);
+  const [about, setAbout] = useState(user?.about ?? '');
+  const [useCases, setUseCases] = useState<UseCase[]>(user?.useCases ?? []);
   const { busy, error, run } = useAsync();
   if (!user) return null;
-  const isTeacher = user.role === 'teacher';
-  const field = (key: keyof typeof profile) => ({ value: profile[key], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setProfile({ ...profile, [key]: e.target.value }) });
 
-  const finish = (next: Parameters<typeof navigate>[0]) =>
+  const toggleUse = (u: UseCase) => setUseCases((list) => (list.includes(u) ? list.filter((x) => x !== u) : [...list, u]));
+  const save = () => update({ displayName: displayName.trim(), avatarColor, about: about.trim(), useCases, onboarded: true });
+
+  const finishHome = () => run(save);
+  const finishStart = () =>
     run(async () => {
-      await update({ ...profile, displayName: profile.displayName.trim(), onboarded: true });
-      navigate(next);
+      await save();
+      navigate({ name: 'meeting', join: await api.instant() });
     });
-
-  const canContinue = step !== 1 || profile.displayName.trim().length > 0;
 
   return (
     <div className="onboarding">
@@ -56,25 +55,35 @@ export function Onboarding() {
               <p className="muted">{t.onboarding.profileText}</p>
             </header>
             <div className="profile-preview">
-              <Avatar name={profile.displayName || '?'} color={profile.avatarColor} size={88} ring />
+              <Avatar name={displayName || '?'} color={avatarColor} size={96} ring />
             </div>
-            <Field label={t.onboarding.displayName} maxLength={40} autoFocus required {...field('displayName')} />
-            <ColorPicker label={t.onboarding.avatarColor} colors={AVATAR_COLORS} value={profile.avatarColor} onChange={(c) => setProfile({ ...profile, avatarColor: c })} />
+            <Field label={t.onboarding.displayName} maxLength={40} autoFocus required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+            <ColorPicker label={t.onboarding.avatarColor} colors={AVATAR_COLORS} value={avatarColor} onChange={setAvatarColor} />
           </section>
         )}
 
         {step === 2 && (
           <section className="stack">
             <header className="heading">
-              <h2>{isTeacher ? t.onboarding.aboutTeacherTitle : t.onboarding.aboutStudentTitle}</h2>
-              <p className="muted">{t.onboarding.aboutText}</p>
+              <h2>{t.onboarding.useTitle}</h2>
+              <p className="muted">{t.onboarding.useText}</p>
             </header>
-            <Field label={t.onboarding.school} placeholder={t.onboarding.schoolPlaceholder} maxLength={80} {...field('school')} />
-            {isTeacher ? (
-              <Field label={t.onboarding.subject} placeholder={t.onboarding.subjectPlaceholder} maxLength={60} {...field('subject')} />
-            ) : (
-              <Field label={t.onboarding.grade} placeholder={t.onboarding.gradePlaceholder} maxLength={40} {...field('grade')} />
-            )}
+            <div className="choice-grid" role="group" aria-label={t.onboarding.useTitle}>
+              {USE_CASES.map((u) => {
+                const Icon = USE_CASE_ICONS[u];
+                const on = useCases.includes(u);
+                return (
+                  <button key={u} type="button" aria-pressed={on} className={`choice ${on ? 'is-active' : ''}`} onClick={() => toggleUse(u)}>
+                    <span className="choice-icon">
+                      <Icon size={22} />
+                    </span>
+                    <span>{t.useCases[u]}</span>
+                    {on && <Check size={18} className="choice-check" />}
+                  </button>
+                );
+              })}
+            </div>
+            <Field label={t.onboarding.about} placeholder={t.onboarding.aboutPlaceholder} maxLength={120} value={about} onChange={(e) => setAbout(e.target.value)} />
           </section>
         )}
 
@@ -105,7 +114,7 @@ export function Onboarding() {
               <h2>{t.onboarding.devicesTitle}</h2>
               <p className="muted">{t.onboarding.devicesText}</p>
             </header>
-            <DeviceCheck name={profile.displayName} color={profile.avatarColor} />
+            <DeviceCheck name={displayName} color={avatarColor} />
           </section>
         )}
 
@@ -114,21 +123,15 @@ export function Onboarding() {
             <span className="done-icon">
               <PartyPopper size={36} />
             </span>
-            <h2>{isTeacher ? t.onboarding.doneTeacherTitle : t.onboarding.doneStudentTitle}</h2>
-            <p className="muted">{isTeacher ? t.onboarding.doneTeacherText : t.onboarding.doneStudentText}</p>
+            <h2>{t.onboarding.doneTitle}</h2>
+            <p className="muted">{t.onboarding.doneText}</p>
             <ErrorText code={error} />
             <div className="row-wrap center">
-              {isTeacher ? (
-                <Button size="lg" icon={Plus} loading={busy} onClick={() => finish({ name: 'home', newClass: true })}>
-                  {t.onboarding.createFirstClass}
-                </Button>
-              ) : (
-                <Button size="lg" icon={Link2} loading={busy} onClick={() => finish({ name: 'join' })}>
-                  {t.nav.joinClass}
-                </Button>
-              )}
-              <Button size="lg" variant="secondary" icon={LayoutDashboard} disabled={busy} onClick={() => finish({ name: 'home' })}>
-                {t.onboarding.goToDashboard}
+              <Button size="lg" icon={Video} loading={busy} onClick={finishStart}>
+                {t.onboarding.startNow}
+              </Button>
+              <Button size="lg" variant="secondary" icon={Sparkles} disabled={busy} onClick={finishHome}>
+                {t.onboarding.goHome}
               </Button>
             </div>
           </section>
@@ -149,7 +152,7 @@ export function Onboarding() {
                   {t.common.skip}
                 </Button>
               )}
-              <Button onClick={() => setStep(step + 1)} disabled={!canContinue}>
+              <Button onClick={() => setStep(step + 1)} disabled={step === 1 && !displayName.trim()}>
                 {t.common.continue}
                 <ArrowRight size={18} className="flip-rtl" />
               </Button>

@@ -1,4 +1,4 @@
-import { GraduationCap, Home, Languages, LogIn, Moon, Settings as SettingsIcon, Sun } from 'lucide-react';
+import { Home, Languages, LogIn, Moon, Settings as SettingsIcon, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
 import icon from '../../../build/icon.svg';
 import { useAuth } from '../lib/auth';
@@ -85,7 +85,7 @@ export function AppShell({ active, children }: { active: Route['name']; children
   if (!user) return null;
   const items = [
     { route: { name: 'home' } as Route, icon: Home, label: t.nav.home },
-    { route: { name: 'join' } as Route, icon: LogIn, label: t.nav.joinClass, hidden: user.role === 'teacher' },
+    { route: { name: 'join' } as Route, icon: LogIn, label: t.nav.join },
     { route: { name: 'settings' } as Route, icon: SettingsIcon, label: t.nav.settings },
   ];
   return (
@@ -94,11 +94,10 @@ export function AppShell({ active, children }: { active: Route['name']; children
         <Logo small />
         <div className="nav-list">
           {items
-            .filter((i) => !i.hidden)
             .map(({ route, icon: Icon, label }) => (
               <button
                 key={route.name}
-                className={`nav-item ${active === route.name || (route.name === 'home' && active === 'class') ? 'is-active' : ''}`}
+                className={`nav-item ${active === route.name || (route.name === 'home' && active === 'space') ? 'is-active' : ''}`}
                 onClick={() => navigate(route)}
               >
                 <Icon size={20} />
@@ -110,9 +109,7 @@ export function AppShell({ active, children }: { active: Route['name']; children
           <Avatar name={user.displayName} color={user.avatarColor} size={38} />
           <span className="user-card-text">
             <strong>{user.displayName}</strong>
-            <span className="muted small">
-              {user.role === 'teacher' ? <GraduationCap size={13} /> : null} {user.role === 'teacher' ? t.common.teacher : t.common.student}
-            </span>
+            {user.about && <span className="muted small">{user.about}</span>}
           </span>
         </button>
       </nav>

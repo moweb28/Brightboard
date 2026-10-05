@@ -1,4 +1,4 @@
-import { AVATAR_COLORS } from '@classroom/protocol';
+import { AVATAR_COLORS, USE_CASES, type UseCase } from '@classroom/protocol';
 import { Bell, Check, Languages, LogOut, Palette, ShieldCheck, User, Video } from 'lucide-react';
 import { useState } from 'react';
 import { LanguagePicker, ScenePicker, ThemePicker } from '../components/AppearancePicker';
@@ -10,6 +10,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { BACKGROUND_IMAGES, backgroundsSupported } from '../lib/effects';
 import { BACKGROUNDS, useSettings, useT } from '../lib/settings';
+import { USE_CASE_ICONS } from './Onboarding';
 import { useAsync } from '../lib/useAsync';
 
 type Section = 'profile' | 'appearance' | 'language' | 'audioVideo' | 'notifications' | 'account';
@@ -64,34 +65,47 @@ function ProfileSection() {
   const t = useT();
   const toast = useToast();
   const { user, update } = useAuth();
-  const [form, setForm] = useState({ displayName: user!.displayName, avatarColor: user!.avatarColor, school: user!.school, subject: user!.subject, grade: user!.grade });
+  const [displayName, setDisplayName] = useState(user!.displayName);
+  const [avatarColor, setAvatarColor] = useState(user!.avatarColor);
+  const [about, setAbout] = useState(user!.about);
+  const [useCases, setUseCases] = useState<UseCase[]>(user!.useCases);
   const { busy, error, run } = useAsync();
-  const field = (key: 'displayName' | 'school' | 'subject' | 'grade') => ({ value: form[key], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [key]: e.target.value }) });
+  const toggleUse = (u: UseCase) => setUseCases((list) => (list.includes(u) ? list.filter((x) => x !== u) : [...list, u]));
   const save = (e: React.FormEvent) => {
     e.preventDefault();
     run(async () => {
-      await update({ ...form, displayName: form.displayName.trim() });
+      await update({ displayName: displayName.trim(), avatarColor, about: about.trim(), useCases });
       toast({ text: t.common.saved, icon: Check, tone: 'success' });
     });
   };
   return (
     <form className="stack" onSubmit={save}>
       <div className="profile-preview">
-        <Avatar name={form.displayName || '?'} color={form.avatarColor} size={80} ring />
+        <Avatar name={displayName || '?'} color={avatarColor} size={80} ring />
       </div>
-      <Field label={t.onboarding.displayName} maxLength={40} required {...field('displayName')} />
-      <ColorPicker label={t.onboarding.avatarColor} colors={AVATAR_COLORS} value={form.avatarColor} onChange={(c) => setForm({ ...form, avatarColor: c })} />
-      <div className="grid-2">
-        <Field label={t.onboarding.school} placeholder={t.onboarding.schoolPlaceholder} maxLength={80} {...field('school')} />
-        {user!.role === 'teacher' ? (
-          <Field label={t.onboarding.subject} placeholder={t.onboarding.subjectPlaceholder} maxLength={60} {...field('subject')} />
-        ) : (
-          <Field label={t.onboarding.grade} placeholder={t.onboarding.gradePlaceholder} maxLength={40} {...field('grade')} />
-        )}
+      <Field label={t.onboarding.displayName} maxLength={40} required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+      <ColorPicker label={t.onboarding.avatarColor} colors={AVATAR_COLORS} value={avatarColor} onChange={setAvatarColor} />
+      <Field label={t.onboarding.about} placeholder={t.onboarding.aboutPlaceholder} maxLength={120} value={about} onChange={(e) => setAbout(e.target.value)} />
+      <div className="field">
+        <span className="field-label">{t.onboarding.useTitle}</span>
+        <div className="choice-grid">
+          {USE_CASES.map((u) => {
+            const Icon = USE_CASE_ICONS[u];
+            const on = useCases.includes(u);
+            return (
+              <button key={u} type="button" aria-pressed={on} className={`choice ${on ? 'is-active' : ''}`} onClick={() => toggleUse(u)}>
+                <span className="choice-icon">
+                  <Icon size={20} />
+                </span>
+                <span>{t.useCases[u]}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
       <ErrorText code={error} />
       <div>
-        <Button loading={busy} disabled={!form.displayName.trim()}>
+        <Button loading={busy} disabled={!displayName.trim()}>
           {t.common.save}
         </Button>
       </div>
@@ -179,8 +193,6 @@ function AccountSection() {
       <dl className="info-list">
         <dt>{t.settings.email}</dt>
         <dd dir="ltr">{user!.email}</dd>
-        <dt>{t.settings.role}</dt>
-        <dd>{user!.role === 'teacher' ? t.common.teacher : t.common.student}</dd>
       </dl>
       <form className="stack" onSubmit={change}>
         <h3>{t.settings.changePassword}</h3>

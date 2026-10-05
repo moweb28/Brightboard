@@ -1,26 +1,21 @@
-import type { ClassDto } from '@classroom/protocol';
-import { BookOpen, CalendarClock, Clock, Link2, Play, Plus, Radio, Send, Users, Video } from 'lucide-react';
+import { extractRoomCode, type SpaceDto } from '@classroom/protocol';
+import { ArrowRight, CalendarClock, Clock, Lock, Play, Plus, Radio, Send, Sparkles, Users, Video, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { ClassFormModal } from '../components/ClassFormModal';
 import { InviteBox } from '../components/InviteBox';
 import { AppShell } from '../components/layout';
+import { SpaceFormModal } from '../components/SpaceFormModal';
 import { useToast } from '../components/toast';
 import { Badge, Button, EmptyState, Modal, Spinner } from '../components/ui';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { dayPart, formatRelative } from '../lib/format';
 import { useNavigate } from '../lib/nav';
 import { useSettings, useT } from '../lib/settings';
 import { useLoad } from '../lib/useAsync';
 
-export function Home({ newClass }: { newClass?: boolean }) {
-  const { user } = useAuth();
-  return user?.role === 'teacher' ? <TeacherHome openNew={newClass} /> : <StudentHome />;
-}
-
 /** Refetch every 15 s so live badges stay current. */
-function useClasses() {
-  const res = useLoad(() => api.classes(), []);
+function useSpaces() {
+  const res = useLoad(() => api.spaces(), []);
   useEffect(() => {
     const id = setInterval(res.reload, 15_000);
     return () => clearInterval(id);
@@ -28,226 +23,219 @@ function useClasses() {
   return res;
 }
 
-function Greeting({ subtitle, action }: { subtitle: string; action?: React.ReactNode }) {
-  const { user } = useAuth();
+export function Home({ newSpace }: { newSpace?: boolean }) {
   const t = useT();
-  return (
-    <header className="page-head">
-      <div>
-        <h1>{t.dashboard.greeting(dayPart(), user?.displayName ?? '')}</h1>
-        <p className="muted">{subtitle}</p>
-      </div>
-      {action}
-    </header>
-  );
-}
-
-function useStartClass() {
-  const navigate = useNavigate();
   const toast = useToast();
-  const t = useT();
-  return async (c: ClassDto) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { data: spaces, reload, error } = useSpaces();
+  const hosted = spaces?.filter((s) => s.isHost) ?? [];
+  const joined = spaces?.filter((s) => !s.isHost) ?? [];
+  const { data: stats } = useLoad(() => (hosted.length ? api.stats() : Promise.resolve(undefined)), [hosted.length]);
+  const [creating, setCreating] = useState(!!newSpace);
+  const [inviting, setInviting] = useState<SpaceDto | null>(null);
+  const [paste, setPaste] = useState('');
+  const [starting, setStarting] = useState(false);
+  const live = spaces?.filter((s) => s.live) ?? [];
+
+  const fail = (e: unknown) => toast({ text: t.errors[e instanceof ApiError ? e.code : 'generic'] ?? t.errors.generic, tone: 'warn' });
+
+  const startNow = async () => {
+    setStarting(true);
     try {
-      const join = await api.start(c.id);
-      navigate({ name: 'meeting', join, inviteCode: c.code, invitePassword: c.joinPassword });
-    } catch {
-      toast({ text: t.errors.generic, tone: 'warn' });
+      navigate({ name: 'meeting', join: await api.instant() });
+    } catch (e) {
+      fail(e);
+      setStarting(false);
     }
   };
-}
 
-function TeacherHome({ openNew }: { openNew?: boolean }) {
-  const t = useT();
-  const { settings } = useSettings();
-  const navigate = useNavigate();
-  const { data: classes, reload, error } = useClasses();
-  const { data: stats } = useLoad(() => api.stats(), [classes?.length]);
-  const [creating, setCreating] = useState(!!openNew);
-  const [inviting, setInviting] = useState<ClassDto | null>(null);
-  const start = useStartClass();
-  const live = classes?.find((c) => c.live);
+  /** Host: start (or rejoin) the call. Member: join it, asking for the password only if needed. */
+  const open = async (s: SpaceDto) => {
+    try {
+      if (s.isHost) navigate({ name: 'meeting', join: await api.start(s.id), invitePassword: s.password });
+      else navigate({ name: 'meeting', join: await api.join(s.code, user!.displayName, '') });
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'wrongPassword') navigate({ name: 'join', code: s.code });
+      else fail(e);
+    }
+  };
 
-  const statCards = [
-    { icon: BookOpen, label: t.dashboard.statClasses, value: stats?.classes },
-    { icon: Users, label: t.dashboard.statStudents, value: stats?.students },
-    { icon: CalendarClock, label: t.dashboard.statSessionsWeek, value: stats?.sessionsThisWeek },
-    { icon: Clock, label: t.dashboard.statMinutes, value: stats?.minutesTaught },
+  const joinPasted = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = extractRoomCode(paste);
+    if (!code) return toast({ text: t.errors.badCode, tone: 'warn' });
+    try {
+      navigate({ name: 'meeting', join: await api.join(code, user!.displayName, '') });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'wrongPassword') navigate({ name: 'join', code });
+      else fail(err);
+    }
+  };
+
+  const statCards = stats && [
+    { icon: Sparkles, label: t.home.statSpaces, value: stats.spaces },
+    { icon: Users, label: t.home.statPeople, value: stats.people },
+    { icon: CalendarClock, label: t.home.statCalls, value: stats.callsThisWeek },
+    { icon: Clock, label: t.home.statMinutes, value: stats.minutesTogether },
   ];
 
   return (
     <AppShell active="home">
       <div className="page">
-        <Greeting
-          subtitle={t.dashboard.teacherSubtitle}
-          action={
-            <Button icon={Plus} onClick={() => setCreating(true)}>
-              {t.dashboard.newClass}
-            </Button>
-          }
-        />
+        <header className="home-hero">
+          <h1 className="display">{t.home.greeting(dayPart(), user?.displayName ?? '')}</h1>
+          <p className="muted lead">{t.home.subtitle}</p>
+          <div className="home-actions">
+            <button className="action-tile action-primary" onClick={startNow} disabled={starting}>
+              <span className="action-icon">
+                <Zap size={24} />
+              </span>
+              <span className="action-text">
+                <strong>{t.home.startNow}</strong>
+                <span>{t.home.startNowHint}</span>
+              </span>
+            </button>
+            <button className="action-tile" onClick={() => setCreating(true)}>
+              <span className="action-icon">
+                <Plus size={24} />
+              </span>
+              <span className="action-text">
+                <strong>{t.home.newSpace}</strong>
+                <span>{t.kinds.hangout.name} · {t.kinds.meeting.name} · {t.kinds.class.name} · {t.kinds.event.name}</span>
+              </span>
+            </button>
+            <form className="paste-join" onSubmit={joinPasted}>
+              <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={t.home.pastePlaceholder} dir="auto" aria-label={t.home.pastePlaceholder} />
+              <Button icon={ArrowRight} disabled={!paste.trim()} aria-label={t.home.joinNow}>
+                {t.home.joinNow}
+              </Button>
+            </form>
+          </div>
+        </header>
 
-        {live && (
-          <div className="live-banner">
-            <Radio size={22} />
-            <div>
-              <strong>{t.dashboard.liveNow}</strong>
-              <span>{t.dashboard.liveNowText(live.title)}</span>
-            </div>
-            <Button icon={Video} onClick={() => start(live)}>
-              {t.dashboard.rejoin}
-            </Button>
+        {live.length > 0 && (
+          <section className="live-strip">
+            {live.map((s) => (
+              <div className="live-banner" key={s.id}>
+                <Radio size={20} />
+                <span className="live-emoji">{s.emoji}</span>
+                <div>
+                  <strong>{t.home.liveNow}</strong>
+                  <span>{s.title}</span>
+                </div>
+                <Button icon={Video} onClick={() => open(s)}>
+                  {s.isHost ? t.home.rejoin : t.home.joinNow}
+                </Button>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {statCards && (
+          <div className="stats">
+            {statCards.map(({ icon: Icon, label, value }) => (
+              <div className="stat" key={label}>
+                <Icon size={18} />
+                <strong>{value}</strong>
+                <span className="muted small">{label}</span>
+              </div>
+            ))}
           </div>
         )}
 
-        <div className="stats">
-          {statCards.map(({ icon: Icon, label, value }) => (
-            <div className="stat card" key={label}>
-              <span className="stat-icon">
-                <Icon size={20} />
-              </span>
-              <strong>{value ?? '–'}</strong>
-              <span className="muted small">{label}</span>
-            </div>
-          ))}
-        </div>
-
-        <h2 className="section-title">{t.dashboard.yourClasses}</h2>
-        {!classes && !error && <Spinner />}
-        {classes?.length === 0 && (
+        {!spaces && !error && <Spinner />}
+        {spaces?.length === 0 && (
           <EmptyState
-            icon={BookOpen}
-            title={t.dashboard.noClassesTitle}
-            text={t.dashboard.noClassesText}
+            icon={Sparkles}
+            title={t.home.emptyTitle}
+            text={t.home.emptyText}
             action={
               <Button icon={Plus} onClick={() => setCreating(true)}>
-                {t.dashboard.newClass}
+                {t.home.newSpace}
               </Button>
             }
           />
         )}
-        <div className="class-grid">
-          {classes?.map((c) => (
-            <article key={c.id} className="class-card card" onClick={() => navigate({ name: 'class', id: c.id })} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && navigate({ name: 'class', id: c.id })}>
-              <div className="class-card-band" style={{ background: c.color }}>
-                <span className="class-card-subject">{c.subject || '—'}</span>
-                {c.live && <Badge tone="live">● {t.dashboard.live}</Badge>}
-              </div>
-              <div className="class-card-body">
-                <h3>{c.title}</h3>
-                {c.schedule && (
-                  <p className="muted small icon-line">
-                    <CalendarClock size={14} /> {c.schedule}
-                  </p>
-                )}
-                <p className="muted small icon-line">
-                  <Users size={14} /> {t.dashboard.students(c.studentCount)} · {c.lastSessionAt ? t.dashboard.lastSession(formatRelative(c.lastSessionAt, settings.lang)) : t.dashboard.neverHeld}
-                </p>
-              </div>
-              <div className="class-card-actions" onClick={(e) => e.stopPropagation()}>
-                <Button size="sm" icon={Play} onClick={() => start(c)}>
-                  {c.live ? t.dashboard.rejoin : t.dashboard.start}
-                </Button>
-                <Button size="sm" variant="secondary" icon={Send} onClick={() => setInviting(c)}>
-                  {t.dashboard.invite}
-                </Button>
-              </div>
-            </article>
-          ))}
-        </div>
+
+        {hosted.length > 0 && (
+          <>
+            <h2 className="section-title">{t.home.yourSpaces}</h2>
+            <div className="space-grid">
+              {hosted.map((s) => (
+                <SpaceCard key={s.id} space={s} onOpen={() => open(s)} onInvite={() => setInviting(s)} onDetails={() => navigate({ name: 'space', id: s.id })} />
+              ))}
+            </div>
+          </>
+        )}
+        {joined.length > 0 && (
+          <>
+            <h2 className="section-title">{t.home.joined}</h2>
+            <div className="space-grid">
+              {joined.map((s) => (
+                <SpaceCard key={s.id} space={s} onOpen={() => open(s)} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {creating && (
-        <ClassFormModal
+        <SpaceFormModal
           onClose={() => setCreating(false)}
-          onSaved={(c) => {
+          onSaved={(s) => {
             setCreating(false);
             reload();
-            setInviting(c);
+            setInviting(s);
           }}
         />
       )}
       {inviting && (
-        <Modal title={`${t.classPage.invitePeople} · ${inviting.title}`} onClose={() => setInviting(null)}>
-          <InviteBox cls={inviting} onChange={(c) => (setInviting(c), reload())} />
+        <Modal title={`${t.space.invite} · ${inviting.emoji} ${inviting.title}`} onClose={() => setInviting(null)}>
+          <InviteBox space={inviting} onChange={(s) => (setInviting(s), reload())} />
         </Modal>
       )}
     </AppShell>
   );
 }
 
-function StudentHome() {
+function SpaceCard({ space: s, onOpen, onInvite, onDetails }: { space: SpaceDto; onOpen: () => void; onInvite?: () => void; onDetails?: () => void }) {
   const t = useT();
   const { settings } = useSettings();
-  const navigate = useNavigate();
-  const toast = useToast();
-  const { user } = useAuth();
-  const { data: classes, error } = useClasses();
-
-  const joinNow = async (c: ClassDto) => {
-    try {
-      const join = await api.join(c.code, user!.displayName, '');
-      navigate({ name: 'meeting', join });
-    } catch (e) {
-      const code = (e as { code?: string }).code ?? 'generic';
-      if (code === 'wrongPassword') navigate({ name: 'join', code: c.code });
-      else toast({ text: t.errors[code] ?? t.errors.generic, tone: 'warn' });
-    }
-  };
-
   return (
-    <AppShell active="home">
-      <div className="page">
-        <Greeting
-          subtitle={t.dashboard.studentSubtitle}
-          action={
-            <Button icon={Link2} onClick={() => navigate({ name: 'join' })}>
-              {t.nav.joinClass}
-            </Button>
-          }
-        />
-        <h2 className="section-title">{t.dashboard.myClasses}</h2>
-        {!classes && !error && <Spinner />}
-        {classes?.length === 0 && (
-          <EmptyState
-            icon={BookOpen}
-            title={t.dashboard.noMyClassesTitle}
-            text={t.dashboard.noMyClassesText}
-            action={
-              <Button icon={Link2} onClick={() => navigate({ name: 'join' })}>
-                {t.nav.joinClass}
-              </Button>
-            }
-          />
-        )}
-        <div className="class-grid">
-          {classes
-            ?.slice()
-            .sort((a, b) => Number(b.live) - Number(a.live))
-            .map((c) => (
-              <article key={c.id} className="class-card card">
-                <div className="class-card-band" style={{ background: c.color }}>
-                  <span className="class-card-subject">{c.subject || '—'}</span>
-                  {c.live ? <Badge tone="live">● {t.dashboard.live}</Badge> : <Badge>{t.dashboard.notLive}</Badge>}
-                </div>
-                <div className="class-card-body">
-                  <h3>{c.title}</h3>
-                  <p className="muted small">{t.dashboard.byTeacher(c.teacherName)}</p>
-                  {c.schedule && (
-                    <p className="muted small icon-line">
-                      <CalendarClock size={14} /> {c.schedule}
-                    </p>
-                  )}
-                  {c.lastSessionAt && <p className="muted small">{t.dashboard.lastSession(formatRelative(c.lastSessionAt, settings.lang))}</p>}
-                </div>
-                <div className="class-card-actions">
-                  <Button size="sm" icon={Video} disabled={!c.live} onClick={() => joinNow(c)}>
-                    {t.dashboard.joinNow}
-                  </Button>
-                </div>
-              </article>
-            ))}
+    <article
+      className={`space-card ${onDetails ? 'is-clickable' : ''}`}
+      style={{ '--space-color': s.color } as React.CSSProperties}
+      onClick={onDetails}
+      onKeyDown={(e) => onDetails && e.key === 'Enter' && onDetails()}
+      tabIndex={onDetails ? 0 : undefined}
+    >
+      <div className="space-card-top">
+        <span className="space-emoji">{s.emoji}</span>
+        <div className="row">
+          {s.hasPassword && (
+            <span className="icon-chip" title={t.home.locked}>
+              <Lock size={13} />
+            </span>
+          )}
+          {s.live ? <Badge tone="live">● {t.home.live}</Badge> : <Badge>{t.kinds[s.kind].name}</Badge>}
         </div>
       </div>
-    </AppShell>
+      <h3>{s.title}</h3>
+      <p className="muted small">{s.isHost ? s.schedule || t.kinds[s.kind].name : t.home.hostedBy(s.hostName)}</p>
+      <p className="muted small icon-line">
+        <Users size={14} /> {t.home.people(s.peopleCount)} · {s.lastCallAt ? t.home.lastCall(formatRelative(s.lastCallAt, settings.lang)) : t.home.neverHeld}
+      </p>
+      <div className="space-card-actions" onClick={(e) => e.stopPropagation()}>
+        <Button size="sm" icon={Play} disabled={!s.isHost && !s.live} onClick={onOpen}>
+          {s.isHost ? (s.live ? t.home.rejoin : t.home.start) : t.home.joinNow}
+        </Button>
+        {onInvite && (
+          <Button size="sm" variant="secondary" icon={Send} onClick={onInvite}>
+            {t.home.invite}
+          </Button>
+        )}
+      </div>
+    </article>
   );
 }

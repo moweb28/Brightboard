@@ -1,4 +1,4 @@
-import type { Role, UserDto } from '@classroom/protocol';
+import type { UserDto } from '@classroom/protocol';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, authToken, setUnauthorizedHandler } from './api';
 
@@ -6,7 +6,7 @@ interface AuthState {
   /** undefined while checking a saved session at startup */
   user: UserDto | null | undefined;
   login(email: string, password: string): Promise<void>;
-  register(email: string, password: string, role: Role): Promise<void>;
+  register(email: string, password: string): Promise<void>;
   logout(): void;
   update(patch: Parameters<typeof api.updateMe>[0]): Promise<void>;
 }
@@ -32,8 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authToken.set(res.token);
       setUser(res.user);
     },
-    async register(email, password, role) {
-      const res = await api.register(email, password, role);
+    async register(email, password) {
+      const res = await api.register(email, password);
       authToken.set(res.token);
       setUser(res.user);
     },

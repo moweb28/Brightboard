@@ -1,7 +1,7 @@
 import { applyChatPacket, CHAT_TOPIC, MAX_CHAT_LENGTH, type ChatMessage, type ChatPacket, type ChatState } from '@classroom/protocol';
 import { RoomEvent, type Participant, type RemoteParticipant, type Room } from 'livekit-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { isTeacher, isWaiting, nameOf } from './participants';
+import { isHost, isWaiting, nameOf } from './participants';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -17,7 +17,7 @@ export interface Chat {
   markRead(): void;
 }
 
-/** Teams-style chat over the LiveKit data channel. The teacher's app re-sends history to people who join late. */
+/** Teams-style chat over the LiveKit data channel. The host's app re-sends history to people who join late. */
 export function useChat(room: Room, panelOpen: boolean, onIncoming: (m: ChatMessage) => void): Chat {
   const [state, setState] = useState<ChatState>({ messages: [] });
   const [typingMap, setTypingMap] = useState<Record<string, { name: string; at: number }>>({});
@@ -45,8 +45,8 @@ export function useChat(room: Room, panelOpen: boolean, onIncoming: (m: ChatMess
       } catch {
         return;
       }
-      // History is only trusted from the teacher.
-      if (packet.type === 'history' && !isTeacher(participant)) return;
+      // History is only trusted from the host.
+      if (packet.type === 'history' && !isHost(participant)) return;
       if (packet.type === 'typing') {
         setTypingMap((m) => ({ ...m, [participant.identity]: { name: nameOf(participant), at: Date.now() } }));
         return;
@@ -69,9 +69,9 @@ export function useChat(room: Room, panelOpen: boolean, onIncoming: (m: ChatMess
     return () => void room.off(RoomEvent.DataReceived, onData);
   }, [room]);
 
-  // Teacher: send chat history to whoever is newly admitted to the class.
+  // Host: send chat history to whoever is newly admitted to the class.
   useEffect(() => {
-    if (!isTeacher(room.localParticipant)) return;
+    if (!isHost(room.localParticipant)) return;
     const sendHistory = (p: Participant) => {
       if (isWaiting(p) || stateRef.current.messages.length === 0) return;
       setTimeout(() => publish({ type: 'history', messages: stateRef.current.messages.slice(-200) }, [p.identity]), 1000);

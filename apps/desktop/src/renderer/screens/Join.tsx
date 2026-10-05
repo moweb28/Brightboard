@@ -45,7 +45,7 @@ export function JoinForm({ initialCode }: { initialCode?: string }) {
   return (
     <form onSubmit={submit} className="stack">
       <Field
-        label={t.join.classCode}
+        label={t.join.code}
         className="code-input"
         dir="ltr"
         value={codeInput}
@@ -60,9 +60,9 @@ export function JoinForm({ initialCode }: { initialCode?: string }) {
       ) : (
         <Field label={t.join.yourName} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder={t.join.namePlaceholder} required autoFocus={!!initialCode} />
       )}
-      <Field label={t.join.classPassword} type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus={!!initialCode && !!user} />
+      <Field label={t.join.password} type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus={!!initialCode && !!user} />
       <ErrorText code={error} />
-      <Button size="lg" icon={LogIn} block loading={busy} disabled={!password || (!user && !name.trim())}>
+      <Button size="lg" icon={LogIn} block loading={busy} disabled={!user && !name.trim()}>
         {t.join.button}
       </Button>
     </form>

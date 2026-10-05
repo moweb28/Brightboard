@@ -1,11 +1,11 @@
 import type { ModerateAction, RoomMeta } from '@classroom/protocol';
 import { isTrackReference, useIsSpeaking, useTracks, VideoTrack, type TrackReferenceOrPlaceholder } from '@livekit/components-react';
 import { Track, type Room } from 'livekit-client';
-import { EyeOff, GraduationCap, MicOff, MonitorUp, MoreHorizontal, Pin, Star } from 'lucide-react';
+import { Crown, EyeOff, MicOff, MonitorUp, MoreHorizontal, Pin, Star } from 'lucide-react';
 import { Avatar, IconButton, Menu } from '../components/ui';
 import { useSettings, useT } from '../lib/settings';
 import { participantActions } from './moderation';
-import { colorOf, handUp, isAway, isTeacher, isWaiting, nameOf } from './participants';
+import { colorOf, handUp, isAway, isHost, isWaiting, nameOf } from './participants';
 
 export type Layout = 'grid' | 'speaker';
 
@@ -13,7 +13,7 @@ interface Props {
   room: Room;
   meta: RoomMeta;
   layout: Layout;
-  amTeacher: boolean;
+  amHost: boolean;
   pinned: string | null;
   setPinned: (id: string | null) => void;
   moderate: (a: ModerateAction) => void;
@@ -29,7 +29,7 @@ function gridColumns(n: number) {
   return 5;
 }
 
-export function Stage({ room, meta, layout, amTeacher, pinned, setPinned, moderate }: Props) {
+export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate }: Props) {
   const refs = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -47,7 +47,7 @@ export function Stage({ room, meta, layout, amTeacher, pinned, setPinned, modera
     cameraOf(pinned) ?? cameraOf(meta.spotlight) ?? shares[0] ?? (layout === 'speaker' && cameras.length > 1 ? (cameraOf(speaker?.identity ?? null) ?? cameras.find((r) => !r.participant.isLocal)) : undefined);
 
   const tile = (r: TrackReferenceOrPlaceholder, size: 'grid' | 'focus' | 'strip') => (
-    <Tile key={keyOf(r)} trackRef={r} size={size} meta={meta} amTeacher={amTeacher} pinned={pinned} setPinned={setPinned} moderate={moderate} />
+    <Tile key={keyOf(r)} trackRef={r} size={size} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} />
   );
 
   if (focus) {
@@ -61,7 +61,7 @@ export function Stage({ room, meta, layout, amTeacher, pinned, setPinned, modera
   }
 
   return (
-    <div className="stage stage-grid" style={{ '--cols': gridColumns(cameras.length) } as React.CSSProperties}>
+    <div className="stage stage-grid" style={{ '--cols': gridColumns(cameras.length), '--rows': Math.ceil(cameras.length / gridColumns(cameras.length)) } as React.CSSProperties}>
       {cameras.map((r) => tile(r, 'grid'))}
     </div>
   );
@@ -71,13 +71,13 @@ interface TileProps {
   trackRef: TrackReferenceOrPlaceholder;
   size: 'grid' | 'focus' | 'strip';
   meta: RoomMeta;
-  amTeacher: boolean;
+  amHost: boolean;
   pinned: string | null;
   setPinned: (id: string | null) => void;
   moderate: (a: ModerateAction) => void;
 }
 
-function Tile({ trackRef, size, meta, amTeacher, pinned, setPinned, moderate }: TileProps) {
+function Tile({ trackRef, size, meta, amHost, pinned, setPinned, moderate }: TileProps) {
   const t = useT();
   const { settings } = useSettings();
   const p = trackRef.participant;
@@ -85,11 +85,12 @@ function Tile({ trackRef, size, meta, amTeacher, pinned, setPinned, moderate }: 
   const isShare = trackRef.source === Track.Source.ScreenShare;
   const hasVideo = isTrackReference(trackRef) && !trackRef.publication.isMuted && (trackRef.publication.isSubscribed || p.isLocal);
   const name = nameOf(p);
-  const actions = participantActions(p, { t, amTeacher, meta, pinned, setPinned, moderate });
+  const actions = participantActions(p, { t, amHost, meta, pinned, setPinned, moderate });
   const avatarSize = size === 'strip' ? 52 : size === 'focus' ? 140 : 96;
 
   return (
     <div
+      style={{ '--ring': colorOf(p) } as React.CSSProperties}
       className={`tile tile-${size} ${speaking && !isShare ? 'is-speaking' : ''} ${isShare ? 'is-share' : ''}`}
       onDoubleClick={() => !isShare && setPinned(pinned === p.identity ? null : p.identity)}
     >
@@ -125,7 +126,7 @@ function Tile({ trackRef, size, meta, amTeacher, pinned, setPinned, moderate }: 
       </div>
 
       <div className="tile-label">
-        {isShare ? <MonitorUp size={15} /> : isTeacher(p) ? <GraduationCap size={15} /> : null}
+        {isShare ? <MonitorUp size={15} /> : isHost(p) ? <Crown size={15} /> : null}
         <span>{isShare ? t.meeting.presenting(name) : p.isLocal ? `${name} (${t.common.you})` : name}</span>
         {!isShare && !p.isMicrophoneEnabled && <MicOff size={15} className="icon-off" aria-label="muted" />}
       </div>

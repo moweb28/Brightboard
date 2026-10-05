@@ -1,7 +1,7 @@
-import { formatRoomCode, type ClassDto } from '@classroom/protocol';
-import { Check, Copy, KeyRound, RefreshCw, Send } from 'lucide-react';
+import { formatRoomCode, type SpaceDto } from '@classroom/protocol';
+import { Check, Copy, KeyRound, LockOpen, Send } from 'lucide-react';
 import { useState } from 'react';
-import { api, inviteLink } from '../lib/api';
+import { api, inviteLink, randomPassword } from '../lib/api';
 import { useT } from '../lib/settings';
 import { Button, IconButton } from './ui';
 
@@ -25,24 +25,24 @@ function CopyRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Link, code and password for a class, with "copy invitation" and (for the owner) a new-password button. */
-export function InviteBox({ cls, onChange }: { cls: Pick<ClassDto, 'id' | 'code' | 'title' | 'joinPassword'>; onChange?: (c: ClassDto) => void }) {
+/** Link, code and (optional) password for a space. Hosts can also change the password. */
+export function InviteBox({ space, onChange }: { space: Pick<SpaceDto, 'id' | 'code' | 'title' | 'password'>; onChange?: (s: SpaceDto) => void }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
-  const link = inviteLink(cls.code);
-  const password = cls.joinPassword ?? '';
+  const link = inviteLink(space.code);
+  const password = space.password ?? '';
 
   const copyAll = async () => {
-    await navigator.clipboard.writeText(t.classPage.inviteMessage(cls.title, link, formatRoomCode(cls.code), password));
+    await navigator.clipboard.writeText(t.space.inviteMessage(space.title, link, formatRoomCode(space.code), password));
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
 
-  const newPassword = async () => {
+  const setPassword = async (pw: string) => {
     setBusy(true);
     try {
-      onChange?.(await api.updateClass(cls.id, { password: String(1000 + Math.floor(Math.random() * 9000)) }));
+      onChange?.(await api.updateSpace(space.id, { password: pw }));
     } finally {
       setBusy(false);
     }
@@ -50,19 +50,36 @@ export function InviteBox({ cls, onChange }: { cls: Pick<ClassDto, 'id' | 'code'
 
   return (
     <div className="invite-box">
-      <p className="muted small">{t.classPage.inviteHint}</p>
-      <CopyRow label={t.classPage.link} value={link} />
-      <CopyRow label={t.classPage.code} value={formatRoomCode(cls.code)} />
-      <CopyRow label={t.classPage.password} value={password} />
+      <p className="muted small">{t.space.inviteHint}</p>
+      <CopyRow label={t.space.link} value={link} />
+      <CopyRow label={t.space.code} value={formatRoomCode(space.code)} />
+      {password ? (
+        <CopyRow label={t.space.password} value={password} />
+      ) : (
+        <div className="copy-row">
+          <span className="copy-label">{t.space.password}</span>
+          <span className="muted">{t.space.noPassword}</span>
+        </div>
+      )}
       <div className="row-wrap">
         <Button icon={copied ? Check : Send} onClick={copyAll}>
-          {copied ? t.common.copied : t.classPage.copyInvitation}
+          {copied ? t.common.copied : t.space.copyInvitation}
         </Button>
-        {onChange && (
-          <Button variant="secondary" icon={busy ? RefreshCw : KeyRound} loading={busy} onClick={newPassword}>
-            {t.classPage.newPassword}
-          </Button>
-        )}
+        {onChange &&
+          (password ? (
+            <>
+              <Button variant="secondary" icon={KeyRound} loading={busy} onClick={() => setPassword(randomPassword())}>
+                {t.space.newPassword}
+              </Button>
+              <Button variant="ghost" icon={LockOpen} disabled={busy} onClick={() => setPassword('')}>
+                {t.space.removePassword}
+              </Button>
+            </>
+          ) : (
+            <Button variant="secondary" icon={KeyRound} loading={busy} onClick={() => setPassword(randomPassword())}>
+              {t.space.addPassword}
+            </Button>
+          ))}
       </div>
     </div>
   );

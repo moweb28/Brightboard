@@ -46,11 +46,10 @@ import { useChat } from './useChat';
 interface Props {
   join: JoinInfo;
   choices: JoinChoices;
-  inviteCode: string;
   invitePassword?: string;
 }
 
-export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
+export function RoomView({ join, choices, invitePassword }: Props) {
   const t = useT();
   const toast = useToast();
   const { settings } = useSettings();
@@ -59,9 +58,9 @@ export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
   useRoomVersion(room);
   const local = room.localParticipant;
   const meta = roomMetaOf(room);
-  const amTeacher = join.role === 'teacher';
+  const amHost = join.role === 'host';
   const waiting = isWaiting(local);
-  const moderate = useModerate(join.classId);
+  const moderate = useModerate(join.spaceId);
 
   const [panel, setPanel] = useState<'chat' | 'people' | null>(null);
   const [layout, setLayout] = useState<Layout>('grid');
@@ -87,12 +86,12 @@ export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
     return () => clearInterval(id);
   }, []);
 
-  // Publish mic/camera once connected and admitted (waiting students can't publish yet).
+  // Publish mic/camera once connected and admitted (waiting guests can't publish yet).
   const published = useRef(false);
   useEffect(() => {
     if (connection !== ConnectionState.Connected || waiting || published.current) return;
     published.current = true;
-    const startMuted = !amTeacher && meta.muteOnJoin;
+    const startMuted = !amHost && meta.muteOnJoin;
     local.setMicrophoneEnabled(choices.mic && !startMuted).catch(() => toast({ icon: MicOff, text: t.meeting.micBlocked, tone: 'warn' }));
     local.setCameraEnabled(choices.cam).catch(() => toast({ icon: VideoOff, text: t.meeting.cameraBlocked, tone: 'warn' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,9 +103,9 @@ export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
     if (cameraTrack) applyBackground(cameraTrack, settings.background);
   }, [cameraTrack, settings.background]);
 
-  // Students: tell the teacher when the app is not in focus.
+  // Guests: tell the host when the app is not in focus.
   useEffect(() => {
-    if (amTeacher || waiting) return;
+    if (amHost || waiting) return;
     const update = () => local.setAttributes({ away: document.hasFocus() && !document.hidden ? '' : '1' }).catch(() => undefined);
     window.addEventListener('blur', update);
     window.addEventListener('focus', update);
@@ -116,13 +115,13 @@ export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
       window.removeEventListener('focus', update);
       document.removeEventListener('visibilitychange', update);
     };
-  }, [amTeacher, waiting, local]);
+  }, [amHost, waiting, local]);
 
   // Notifications for joins, waiting room, raised hands and being muted.
   useEffect(() => {
     const onJoin = (p: Participant) => {
       if (isWaiting(p)) {
-        if (amTeacher) {
+        if (amHost) {
           if (settingsRef.current.soundJoin) sounds.join();
           toast({ icon: Users, text: t.meeting.waitingToast(nameOf(p)), action: { label: t.meeting.admit, onClick: () => moderate({ action: 'admit', identity: p.identity }) } });
         }
@@ -138,7 +137,7 @@ export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
       }
     };
     const onMuted = (pub: TrackPublication, p: Participant) => {
-      if (p.isLocal && pub.source === Track.Source.Microphone && !selfMuting.current && !amTeacher) toast({ icon: MicOff, text: t.meeting.mutedByTeacher, tone: 'warn' });
+      if (p.isLocal && pub.source === Track.Source.Microphone && !selfMuting.current && !amHost) toast({ icon: MicOff, text: t.meeting.mutedByHost, tone: 'warn' });
     };
     room.on(RoomEvent.ParticipantConnected, onJoin);
     room.on(RoomEvent.ParticipantAttributesChanged, onAttrs);
@@ -148,7 +147,7 @@ export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
       room.off(RoomEvent.ParticipantAttributesChanged, onAttrs);
       room.off(RoomEvent.TrackMuted, onMuted);
     };
-  }, [room, amTeacher, t, toast, moderate]);
+  }, [room, amHost, t, toast, moderate]);
 
   const toggleMic = async () => {
     selfMuting.current = true;
@@ -171,13 +170,13 @@ export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
   };
 
   const endForAll = async () => {
-    await api.end(join.classId).catch(() => undefined);
+    await api.end(join.spaceId).catch(() => undefined);
     room.disconnect();
   };
 
-  const studentsWaiting = amTeacher ? allParticipants(room).filter(isWaiting).length : 0;
+  const guestsWaiting = amHost ? allParticipants(room).filter(isWaiting).length : 0;
   const people = allParticipants(room).filter((p) => !isWaiting(p)).length;
-  const chatAllowed = amTeacher || meta.chatEnabled;
+  const chatAllowed = amHost || meta.chatEnabled;
 
   if (waiting) {
     return (
@@ -187,7 +186,7 @@ export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
           <div className="waiting-pulse" aria-hidden />
           <h1>{t.meeting.waitingTitle}</h1>
           <p className="muted">{t.meeting.waitingText}</p>
-          <p className="muted small">{join.classTitle}</p>
+          <p className="muted small">{join.spaceTitle}</p>
           <Button variant="secondary" icon={LogOut} onClick={() => room.disconnect()}>
             {t.meeting.leave}
           </Button>
@@ -199,108 +198,111 @@ export function RoomView({ join, choices, inviteCode, invitePassword }: Props) {
   return (
     <div className="room">
       <header className="room-top">
-        <Logo small />
-        <div className="room-title">
-          <strong>{join.classTitle}</strong>
-          <span className="muted small" dir="ltr">
-            {formatDuration(Date.now() - startedAt)}
-          </span>
+        <div className="chip chip-title">
+          <span className="chip-emoji">{join.spaceEmoji}</span>
+          <strong>{join.spaceTitle}</strong>
+          <span className="chip-sep" aria-hidden />
+          <span className="live-dot" aria-hidden />
+          <span dir="ltr">{formatDuration(Date.now() - startedAt)}</span>
         </div>
-        <span className="pill" dir="ltr">
+        <span className="chip chip-code" dir="ltr">
           {formatRoomCode(join.roomName)}
         </span>
         {meta.locked && (
-          <Badge tone="warn">
-            <Lock size={13} /> {t.meeting.locked}
-          </Badge>
+          <span className="chip chip-warn">
+            <Lock size={14} /> {t.meeting.locked}
+          </span>
         )}
         {connection === ConnectionState.Reconnecting && (
-          <Badge tone="warn">
-            <WifiOff size={13} /> {t.meeting.reconnecting}
-          </Badge>
+          <span className="chip chip-warn">
+            <WifiOff size={14} /> {t.meeting.reconnecting}
+          </span>
+        )}
+        {local.isScreenShareEnabled && (
+          <span className="chip chip-accent">
+            <MonitorUp size={14} /> {t.meeting.youArePresenting}
+            <button className="chip-action" onClick={toggleShare}>
+              {t.meeting.stopShare}
+            </button>
+          </span>
         )}
         <div className="spacer" />
-        {amTeacher && (
+        {amHost && (
           <Button size="sm" icon={Send} onClick={() => setInviteOpen(true)}>
             {t.meeting.invite}
           </Button>
         )}
       </header>
 
-      {local.isScreenShareEnabled && (
-        <div className="presenting-banner">
-          <MonitorUp size={18} /> {t.meeting.youArePresenting}
-          <Button size="sm" variant="danger" onClick={toggleShare}>
-            {t.meeting.stopShare}
-          </Button>
-        </div>
-      )}
-
       <div className="room-body">
         <div className="room-stage">
-          <Stage room={room} meta={meta} layout={layout} amTeacher={amTeacher} pinned={pinned} setPinned={setPinned} moderate={moderate} />
+          <Stage room={room} meta={meta} layout={layout} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} />
           <ReactionLayer items={reactions.items} />
         </div>
         {panel === 'chat' && <ChatPanel room={room} chat={chat} canSend={chatAllowed} onClose={() => setPanel(null)} />}
-        {panel === 'people' && <PeoplePanel room={room} classId={join.classId} meta={meta} amTeacher={amTeacher} pinned={pinned} setPinned={setPinned} moderate={moderate} onClose={() => setPanel(null)} />}
+        {panel === 'people' && <PeoplePanel room={room} spaceId={join.spaceId} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} onClose={() => setPanel(null)} />}
       </div>
 
-      <footer className="control-bar">
-        <div className="control-group">
+      <footer className="dock-wrap">
+        <nav className="dock" aria-label={t.meeting.settings}>
           <Ctrl icon={local.isMicrophoneEnabled ? Mic : MicOff} label={local.isMicrophoneEnabled ? t.meeting.micOn : t.meeting.micOff} off={!local.isMicrophoneEnabled} onClick={toggleMic} />
           <Ctrl icon={local.isCameraEnabled ? Video : VideoOff} label={local.isCameraEnabled ? t.meeting.cameraOn : t.meeting.cameraOff} off={!local.isCameraEnabled} onClick={toggleCam} />
           <Ctrl icon={local.isScreenShareEnabled ? MonitorX : MonitorUp} label={local.isScreenShareEnabled ? t.meeting.stopShare : t.meeting.share} active={local.isScreenShareEnabled} onClick={toggleShare} />
-          {!amTeacher && <Ctrl icon={Hand} label={handUp(local) ? t.meeting.lowerHand : t.meeting.raiseHand} active={handUp(local)} onClick={toggleHand} />}
+          <span className="dock-sep" aria-hidden />
+          {!amHost && <Ctrl icon={Hand} label={handUp(local) ? t.meeting.lowerHand : t.meeting.raiseHand} active={handUp(local)} onClick={toggleHand} />}
           <Menu
             up
             align="start"
             trigger={(open, isOpen) => <Ctrl icon={SmilePlus} label={t.meeting.react} active={isOpen} onClick={open} />}
             items={QUICK_REACTIONS.map((e) => ({ label: e, onClick: () => reactions.send(e) }))}
           />
-        </div>
-        <div className="control-group">
           <Ctrl icon={MessageSquare} label={t.meeting.chat} active={panel === 'chat'} badge={chat.unread} onClick={() => setPanel(panel === 'chat' ? null : 'chat')} />
-          <Ctrl icon={Users} label={t.meeting.people} active={panel === 'people'} badge={studentsWaiting} count={people} onClick={() => setPanel(panel === 'people' ? null : 'people')} />
+          <Ctrl icon={Users} label={t.meeting.people} active={panel === 'people'} badge={guestsWaiting} count={people} onClick={() => setPanel(panel === 'people' ? null : 'people')} />
+          <span className="dock-sep" aria-hidden />
           <Ctrl icon={layout === 'grid' ? SquareUserRound : LayoutGrid} label={layout === 'grid' ? t.meeting.speaker : t.meeting.grid} onClick={() => setLayout(layout === 'grid' ? 'speaker' : 'grid')} />
           <Ctrl icon={SettingsIcon} label={t.meeting.settings} onClick={() => setDevicesOpen(true)} />
-        </div>
-        <div className="control-group">
-          {amTeacher ? (
+          {amHost ? (
             <Menu
               up
-              trigger={(open) => <Ctrl icon={PhoneOff} label={t.meeting.leave} danger onClick={open} />}
+              trigger={(open) => <LeaveButton label={t.meeting.leave} onClick={open} />}
               items={[
-                { icon: LogOut, label: t.meeting.leaveClass, onClick: () => room.disconnect() },
+                { icon: LogOut, label: t.meeting.leaveSpace, onClick: () => room.disconnect() },
                 { icon: PhoneOff, label: t.meeting.endForAll, onClick: endForAll, danger: true },
               ]}
             />
           ) : (
-            <Ctrl icon={PhoneOff} label={t.meeting.leave} danger onClick={() => room.disconnect()} />
+            <LeaveButton label={t.meeting.leave} onClick={() => room.disconnect()} />
           )}
-        </div>
+        </nav>
       </footer>
 
       {picker && <ScreenPicker onCancel={() => setPicker(false)} onShare={shareSource} />}
       {devicesOpen && <MeetingSettings room={room} onClose={() => setDevicesOpen(false)} />}
       {inviteOpen && (
-        <Modal title={t.classPage.invitePeople} onClose={() => setInviteOpen(false)}>
-          <InviteBox cls={{ id: join.classId, code: inviteCode, title: join.classTitle, joinPassword: invitePassword }} />
+        <Modal title={t.space.invite} onClose={() => setInviteOpen(false)}>
+          <InviteBox space={{ id: join.spaceId, code: join.roomName, title: join.spaceTitle, password: invitePassword }} />
         </Modal>
       )}
     </div>
   );
 }
 
-function Ctrl({ icon: Icon, label, onClick, off, active, danger, badge, count }: { icon: LucideIcon; label: string; onClick: () => void; off?: boolean; active?: boolean; danger?: boolean; badge?: number; count?: number }) {
+function LeaveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button className={`ctrl ${off ? 'is-off' : ''} ${active ? 'is-active' : ''} ${danger ? 'is-danger' : ''}`} onClick={onClick} aria-pressed={active} title={label}>
-      <span className="ctrl-icon">
-        <Icon size={22} strokeWidth={2.2} />
-        {!!badge && <span className="ctrl-badge">{badge > 99 ? '99+' : badge}</span>}
-        {!badge && count !== undefined && <span className="ctrl-count">{count}</span>}
-      </span>
-      <span className="ctrl-label">{label}</span>
+    <button className="dock-leave" onClick={onClick}>
+      <PhoneOff size={18} strokeWidth={2.4} />
+      <span>{label}</span>
     </button>
   );
 }
 
+/** Round dock button; the label shows as a tooltip above it. */
+function Ctrl({ icon: Icon, label, onClick, off, active, badge, count }: { icon: LucideIcon; label: string; onClick: () => void; off?: boolean; active?: boolean; badge?: number; count?: number }) {
+  return (
+    <button className={`dock-btn ${off ? 'is-off' : ''} ${active ? 'is-active' : ''}`} onClick={onClick} aria-pressed={active} aria-label={label} data-tip={label}>
+      <Icon size={21} strokeWidth={2.2} />
+      {!!badge && <span className="dock-badge">{badge > 99 ? '99+' : badge}</span>}
+      {!badge && count !== undefined && <span className="dock-count">{count}</span>}
+    </button>
+  );
+}

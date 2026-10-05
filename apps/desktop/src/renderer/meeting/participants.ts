@@ -8,13 +8,13 @@ const SCREEN_SHARE_SOURCE = 3;
 
 export function metaOf(p: Participant): ParticipantMeta {
   try {
-    return { role: 'student', ...JSON.parse(p.metadata || '{}') };
+    return { role: 'guest', ...JSON.parse(p.metadata || '{}') };
   } catch {
-    return { role: 'student' };
+    return { role: 'guest' };
   }
 }
 
-export const isTeacher = (p: Participant) => metaOf(p).role === 'teacher';
+export const isHost = (p: Participant) => metaOf(p).role === 'host';
 export const isWaiting = (p: Participant) => !!metaOf(p).waiting;
 export const handUp = (p: Participant) => p.attributes?.hand === '1';
 export const isAway = (p: Participant) => p.attributes?.away === '1';
@@ -59,7 +59,7 @@ export function useRoomVersion(room: Room) {
 }
 
 export function roomMetaOf(room: Room): RoomMeta {
-  const defaults: RoomMeta = { title: '', waitingRoom: false, muteOnJoin: false, studentsCanShare: false, chatEnabled: true, locked: false, spotlight: null };
+  const defaults: RoomMeta = { title: '', kind: 'hangout', waitingRoom: false, muteOnJoin: false, guestsCanShare: false, chatEnabled: true, locked: false, spotlight: null };
   try {
     return { ...defaults, ...JSON.parse(room.metadata || '{}') };
   } catch {

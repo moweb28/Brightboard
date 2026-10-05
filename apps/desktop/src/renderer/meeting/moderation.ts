@@ -6,14 +6,14 @@ import type { MenuItem } from '../components/ui';
 import { api } from '../lib/api';
 import type { Dict } from '../lib/i18n';
 import { useT } from '../lib/settings';
-import { canShareScreen, isTeacher, nameOf } from './participants';
+import { canShareScreen, isHost, nameOf } from './participants';
 
-export function useModerate(classId: number) {
+export function useModerate(spaceId: number) {
   const toast = useToast();
   const t = useT();
   return async (action: ModerateAction) => {
     try {
-      await api.moderate(classId, action);
+      await api.moderate(spaceId, action);
     } catch (e) {
       const code = (e as { code?: string }).code ?? 'generic';
       toast({ text: t.errors[code] ?? t.errors.generic, tone: 'warn' });
@@ -23,7 +23,7 @@ export function useModerate(classId: number) {
 
 interface Ctx {
   t: Dict;
-  amTeacher: boolean;
+  amHost: boolean;
   meta: RoomMeta;
   pinned: string | null;
   setPinned: (id: string | null) => void;
@@ -31,8 +31,8 @@ interface Ctx {
 }
 
 /** Menu items for a participant (tile or people list). Teachers get moderation; everyone can pin. */
-export function participantActions(p: Participant, { t, amTeacher, meta, pinned, setPinned, moderate }: Ctx): MenuItem[] {
-  const target = !p.isLocal && !isTeacher(p) && amTeacher;
+export function participantActions(p: Participant, { t, amHost, meta, pinned, setPinned, moderate }: Ctx): MenuItem[] {
+  const target = !p.isLocal && !isHost(p) && amHost;
   const micOn = p.isMicrophoneEnabled;
   const camOn = p.getTrackPublication(Track.Source.Camera)?.isMuted === false;
   return [
@@ -41,7 +41,7 @@ export function participantActions(p: Participant, { t, amTeacher, meta, pinned,
       icon: meta.spotlight === p.identity ? StarOff : Star,
       label: meta.spotlight === p.identity ? t.meeting.unspotlight : t.meeting.spotlight,
       onClick: () => moderate({ action: 'spotlight', identity: meta.spotlight === p.identity ? null : p.identity }),
-      hidden: !amTeacher,
+      hidden: !amHost,
     },
     { icon: MicOff, label: t.meeting.mute, onClick: () => moderate({ action: 'mute', identity: p.identity }), hidden: !target || !micOn },
     { icon: VideoOff, label: t.meeting.stopVideo, onClick: () => moderate({ action: 'stopVideo', identity: p.identity }), hidden: !target || !camOn },

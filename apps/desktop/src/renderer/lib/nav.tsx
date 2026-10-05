@@ -7,11 +7,11 @@ export type Route =
   | { name: 'register' }
   | { name: 'guestJoin'; code?: string }
   | { name: 'onboarding' }
-  | { name: 'home'; newClass?: boolean }
-  | { name: 'class'; id: number }
+  | { name: 'home'; newSpace?: boolean }
+  | { name: 'space'; id: number }
   | { name: 'join'; code?: string }
   | { name: 'settings' }
-  | { name: 'meeting'; join: JoinInfo; inviteCode?: string; invitePassword?: string };
+  | { name: 'meeting'; join: JoinInfo; invitePassword?: string };
 
 export const NavContext = createContext<(route: Route) => void>(() => {});
 export const useNavigate = () => useContext(NavContext);

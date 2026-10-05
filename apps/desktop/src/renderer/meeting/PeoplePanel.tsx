@@ -6,20 +6,20 @@ import { Avatar, Badge, Button, IconButton, Menu } from '../components/ui';
 import { api } from '../lib/api';
 import { useT } from '../lib/settings';
 import { participantActions } from './moderation';
-import { allParticipants, colorOf, handUp, isAway, isTeacher, isWaiting, nameOf } from './participants';
+import { allParticipants, colorOf, handUp, isAway, isHost, isWaiting, nameOf } from './participants';
 
 interface Props {
   room: Room;
-  classId: number;
+  spaceId: number;
   meta: RoomMeta;
-  amTeacher: boolean;
+  amHost: boolean;
   pinned: string | null;
   setPinned: (id: string | null) => void;
   moderate: (a: ModerateAction) => void;
   onClose: () => void;
 }
 
-export function PeoplePanel({ room, classId, meta, amTeacher, pinned, setPinned, moderate, onClose }: Props) {
+export function PeoplePanel({ room, spaceId, meta, amHost, pinned, setPinned, moderate, onClose }: Props) {
   const t = useT();
   const [query, setQuery] = useState('');
   const everyone = allParticipants(room);
@@ -27,7 +27,7 @@ export function PeoplePanel({ room, classId, meta, amTeacher, pinned, setPinned,
   const inClass = everyone
     .filter((p) => !isWaiting(p))
     .filter((p) => nameOf(p).toLowerCase().includes(query.trim().toLowerCase()))
-    .sort((a, b) => Number(isTeacher(b)) - Number(isTeacher(a)) || Number(handUp(b)) - Number(handUp(a)) || nameOf(a).localeCompare(nameOf(b)));
+    .sort((a, b) => Number(isHost(b)) - Number(isHost(a)) || Number(handUp(b)) - Number(handUp(a)) || nameOf(a).localeCompare(nameOf(b)));
   const hands = everyone.filter((p) => !isWaiting(p) && handUp(p));
 
   return (
@@ -37,8 +37,8 @@ export function PeoplePanel({ room, classId, meta, amTeacher, pinned, setPinned,
         <IconButton icon={X} label={t.common.close} onClick={onClose} />
       </header>
 
-      {amTeacher && (
-        <div className="teacher-tools">
+      {amHost && (
+        <div className="host-tools">
           <Button size="sm" variant="secondary" icon={MicOff} onClick={() => moderate({ action: 'muteAll' })}>
             {t.meeting.muteAll}
           </Button>
@@ -48,7 +48,7 @@ export function PeoplePanel({ room, classId, meta, amTeacher, pinned, setPinned,
           <Button size="sm" variant="secondary" icon={meta.chatEnabled ? MessageSquareOff : MessageSquare} onClick={() => moderate({ action: 'chat', value: !meta.chatEnabled })}>
             {meta.chatEnabled ? t.meeting.chatOff : t.meeting.chatOn}
           </Button>
-          <Button size="sm" variant="secondary" icon={DoorOpen} onClick={() => api.updateClass(classId, { waitingRoom: !meta.waitingRoom }).catch(() => undefined)}>
+          <Button size="sm" variant="secondary" icon={DoorOpen} onClick={() => api.updateSpace(spaceId, { waitingRoom: !meta.waitingRoom }).catch(() => undefined)}>
             {meta.waitingRoom ? t.meeting.waitingOff : t.meeting.waitingOn}
           </Button>
         </div>
@@ -60,7 +60,7 @@ export function PeoplePanel({ room, classId, meta, amTeacher, pinned, setPinned,
       )}
 
       <div className="side-scroll">
-        {amTeacher && waiting.length > 0 && (
+        {amHost && waiting.length > 0 && (
           <section className="people-section">
             <div className="people-section-head">
               <h3>
@@ -99,7 +99,7 @@ export function PeoplePanel({ room, classId, meta, amTeacher, pinned, setPinned,
         )}
 
         <section className="people-section">
-          <h3>{t.meeting.inClass(everyone.length - waiting.length)}</h3>
+          <h3>{t.meeting.here(everyone.length - waiting.length)}</h3>
           {everyone.length > 8 && (
             <label className="search">
               <Search size={16} />
@@ -107,7 +107,7 @@ export function PeoplePanel({ room, classId, meta, amTeacher, pinned, setPinned,
             </label>
           )}
           {inClass.map((p) => (
-            <PersonRow key={p.identity} p={p} actions={participantActions(p, { t, amTeacher, meta, pinned, setPinned, moderate })} />
+            <PersonRow key={p.identity} p={p} actions={participantActions(p, { t, amHost, meta, pinned, setPinned, moderate })} />
           ))}
         </section>
       </div>
@@ -125,7 +125,7 @@ function PersonRow({ p, actions }: { p: Participant; actions: ReturnType<typeof 
       <span className="person-name">
         {nameOf(p)}
         {p.isLocal && <span className="muted"> ({t.common.you})</span>}
-        {isTeacher(p) && <Badge tone="accent">{t.common.teacher}</Badge>}
+        {isHost(p) && <Badge tone="accent">{t.common.host}</Badge>}
       </span>
       <span className="person-icons">
         {handUp(p) && <Hand size={17} className="icon-hand" aria-label={t.meeting.raiseHand} />}

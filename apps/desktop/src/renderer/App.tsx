@@ -6,11 +6,11 @@ import { NavContext, type Route } from './lib/nav';
 import { SettingsProvider } from './lib/settings';
 import { Meeting } from './meeting/Meeting';
 import { Auth } from './screens/Auth';
-import { ClassPage } from './screens/ClassPage';
 import { Home } from './screens/Home';
 import { GuestJoin, JoinPage } from './screens/Join';
 import { Onboarding } from './screens/Onboarding';
 import { SettingsPage } from './screens/Settings';
+import { SpacePage } from './screens/SpacePage';
 import { Welcome } from './screens/Welcome';
 
 export function App() {
@@ -71,14 +71,14 @@ function Screen({ route }: { route: Route }) {
     case 'onboarding':
       return <Onboarding />;
     case 'home':
-      return <Home newClass={route.newClass} />;
-    case 'class':
-      return <ClassPage id={route.id} />;
+      return <Home newSpace={route.newSpace} />;
+    case 'space':
+      return <SpacePage id={route.id} />;
     case 'join':
       return <JoinPage code={route.code} />;
     case 'settings':
       return <SettingsPage />;
     case 'meeting':
-      return <Meeting key={route.join.token} join={route.join} inviteCode={route.inviteCode} invitePassword={route.invitePassword} />;
+      return <Meeting key={route.join.token} join={route.join} invitePassword={route.invitePassword} />;
   }
 }
