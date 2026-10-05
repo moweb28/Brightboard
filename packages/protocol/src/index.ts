@@ -1,47 +1,75 @@
 export * from './roomCode';
 export * from './chat';
 
-export type Role = 'teacher' | 'student';
+/** In a call: whoever created the space hosts; everyone else is a guest. */
+export type Role = 'host' | 'guest';
 
 export const AVATAR_COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6'] as const;
-export const CLASS_COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#64748b'] as const;
+export const SPACE_COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#64748b'] as const;
+export const SPACE_EMOJIS = ['☀️', '💬', '🎓', '🎉', '💼', '🏡', '🎮', '🎨', '📚', '🧪', '🎵', '⚽', '🍿', '🚀', '🌱', '❤️'] as const;
 
-export interface UserDto {
-  id: number;
-  email: string;
-  role: Role;
-  displayName: string;
-  avatarColor: string;
-  school: string;
-  subject: string;
-  grade: string;
-  onboarded: boolean;
-}
+export const SPACE_KINDS = ['hangout', 'meeting', 'class', 'event'] as const;
+export type SpaceKind = (typeof SPACE_KINDS)[number];
 
-export interface ClassSettings {
+export const USE_CASES = ['friends', 'work', 'school', 'events'] as const;
+export type UseCase = (typeof USE_CASES)[number];
+
+export interface SpaceSettings {
   waitingRoom: boolean;
   muteOnJoin: boolean;
-  studentsCanShare: boolean;
+  guestsCanShare: boolean;
   chatEnabled: boolean;
   locked: boolean;
 }
 
-export interface ClassDto extends ClassSettings {
+/** Default settings for each kind of space; the host can change any of them later. */
+export const KIND_PRESETS: Record<SpaceKind, Omit<SpaceSettings, 'locked'>> = {
+  hangout: { waitingRoom: false, muteOnJoin: false, guestsCanShare: true, chatEnabled: true },
+  meeting: { waitingRoom: true, muteOnJoin: false, guestsCanShare: true, chatEnabled: true },
+  class: { waitingRoom: true, muteOnJoin: true, guestsCanShare: false, chatEnabled: true },
+  event: { waitingRoom: false, muteOnJoin: true, guestsCanShare: false, chatEnabled: true },
+};
+
+export const KIND_EMOJI: Record<SpaceKind, string> = { hangout: '☀️', meeting: '💼', class: '🎓', event: '🎉' };
+
+/** The space kind that best fits what someone said they use the app for. */
+export function defaultKindFor(useCases: readonly string[]): SpaceKind {
+  if (useCases.includes('school')) return 'class';
+  if (useCases.includes('work')) return 'meeting';
+  if (useCases.includes('events')) return 'event';
+  return 'hangout';
+}
+
+export interface UserDto {
+  id: number;
+  email: string;
+  displayName: string;
+  avatarColor: string;
+  about: string;
+  useCases: UseCase[];
+  onboarded: boolean;
+}
+
+export interface SpaceDto extends SpaceSettings {
   id: number;
   code: string;
   title: string;
-  subject: string;
+  emoji: string;
   color: string;
+  kind: SpaceKind;
   schedule: string;
-  /** Only present for the owning teacher. */
-  joinPassword?: string;
-  teacherName: string;
+  /** Whether a password is needed to join. */
+  hasPassword: boolean;
+  /** Only present for the host. Empty string = no password. */
+  password?: string;
+  isHost: boolean;
+  hostName: string;
   live: boolean;
-  studentCount: number;
-  lastSessionAt: number | null;
+  peopleCount: number;
+  lastCallAt: number | null;
 }
 
-export interface SessionDto {
+export interface CallDto {
   id: number;
   startedAt: number;
   endedAt: number | null;
@@ -54,16 +82,17 @@ export interface AttendanceDto {
   joinedAt: number;
 }
 
-export interface TeacherStats {
-  classes: number;
-  students: number;
-  sessionsThisWeek: number;
-  minutesTaught: number;
+export interface HostStats {
+  spaces: number;
+  people: number;
+  callsThisWeek: number;
+  minutesTogether: number;
 }
 
-/** Shared state the teacher controls, stored as LiveKit room metadata. */
-export interface RoomMeta extends ClassSettings {
+/** Shared state the host controls, stored as LiveKit room metadata. */
+export interface RoomMeta extends SpaceSettings {
   title: string;
+  kind: SpaceKind;
   spotlight: string | null;
 }
 
@@ -87,8 +116,10 @@ export interface JoinInfo {
   identity: string;
   role: Role;
   roomName: string;
-  classId: number;
-  classTitle: string;
+  spaceId: number;
+  spaceTitle: string;
+  spaceEmoji: string;
+  kind: SpaceKind;
   waiting: boolean;
 }
 

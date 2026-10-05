@@ -1,4 +1,4 @@
-import type { Role, UserDto } from '@classroom/protocol';
+import { USE_CASES, type UseCase, type UserDto } from '@classroom/protocol';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { jwtVerify, SignJWT } from 'jose';
 import type { Config } from './config';
@@ -11,42 +11,36 @@ export class HttpError extends Error {
   }
 }
 
-interface UserRow {
+export interface UserRow {
   id: number;
   email: string;
   password_hash: string;
-  role: Role;
   display_name: string;
   avatar_color: string;
-  school: string;
-  subject: string;
-  grade: string;
+  about: string;
+  use_cases: string;
   onboarded: number;
 }
 
 export const toUserDto = (u: UserRow): UserDto => ({
   id: u.id,
   email: u.email,
-  role: u.role,
   displayName: u.display_name,
   avatarColor: u.avatar_color,
-  school: u.school,
-  subject: u.subject,
-  grade: u.grade,
+  about: u.about,
+  useCases: u.use_cases ? (u.use_cases.split(',') as UseCase[]) : [],
   onboarded: !!u.onboarded,
 });
 
 const email = { type: 'string', minLength: 3, maxLength: 200, pattern: '^[^\\s@]+@[^\\s@]+$' };
 const password = { type: 'string', minLength: 8, maxLength: 200 };
 export const hexColor = { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' };
-const shortText = (max: number) => ({ type: 'string', maxLength: max });
 
 export interface Auth {
   /** The logged-in user, or throws 401. */
   requireUser(req: FastifyRequest): Promise<UserRow>;
   /** The logged-in user if a valid token was sent, else null. */
   optionalUser(req: FastifyRequest): Promise<UserRow | null>;
-  requireTeacher(req: FastifyRequest): Promise<UserRow>;
 }
 
 export function registerAuth(app: FastifyInstance, db: Db, cfg: Config): Auth {
@@ -69,22 +63,15 @@ export function registerAuth(app: FastifyInstance, db: Db, cfg: Config): Auth {
     if (!user) throw new HttpError(401, 'Please log in again', 'unauthorized');
     return user;
   };
-  const requireTeacher = async (req: FastifyRequest) => {
-    const user = await requireUser(req);
-    if (user.role !== 'teacher') throw new HttpError(403, 'Only teachers can do this', 'teacherOnly');
-    return user;
-  };
 
-  app.post<{ Body: { email: string; password: string; role: Role } }>(
+  app.post<{ Body: { email: string; password: string } }>(
     '/auth/register',
-    { schema: { body: { type: 'object', required: ['email', 'password', 'role'], properties: { email, password, role: { enum: ['teacher', 'student'] } } } } },
+    { schema: { body: { type: 'object', required: ['email', 'password'], properties: { email, password } } } },
     async (req, reply) => {
       const addr = req.body.email.trim().toLowerCase();
       if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(addr)) throw new HttpError(409, 'This email already has an account', 'emailTaken');
       const name = addr.split('@')[0].slice(0, 40);
-      const result = db
-        .prepare('INSERT INTO users (email, password_hash, role, display_name, created_at) VALUES (?, ?, ?, ?, ?)')
-        .run(addr, await hashPassword(req.body.password), req.body.role, name, Date.now());
+      const result = db.prepare('INSERT INTO users (email, password_hash, display_name, created_at) VALUES (?, ?, ?, ?)').run(addr, await hashPassword(req.body.password), name, Date.now());
       const id = Number(result.lastInsertRowid);
       reply.code(201);
       return { token: await issue(id), user: toUserDto(findById(id)!) };
@@ -103,7 +90,7 @@ export function registerAuth(app: FastifyInstance, db: Db, cfg: Config): Auth {
 
   app.get('/me', async (req) => toUserDto(await requireUser(req)));
 
-  app.patch<{ Body: Partial<{ displayName: string; avatarColor: string; school: string; subject: string; grade: string; onboarded: boolean }> }>(
+  app.patch<{ Body: Partial<{ displayName: string; avatarColor: string; about: string; useCases: UseCase[]; onboarded: boolean }> }>(
     '/me',
     {
       schema: {
@@ -113,9 +100,8 @@ export function registerAuth(app: FastifyInstance, db: Db, cfg: Config): Auth {
           properties: {
             displayName: { type: 'string', minLength: 1, maxLength: 40, pattern: '\\S' },
             avatarColor: hexColor,
-            school: shortText(80),
-            subject: shortText(60),
-            grade: shortText(40),
+            about: { type: 'string', maxLength: 120 },
+            useCases: { type: 'array', maxItems: USE_CASES.length, uniqueItems: true, items: { enum: [...USE_CASES] } },
             onboarded: { type: 'boolean' },
           },
         },
@@ -124,14 +110,11 @@ export function registerAuth(app: FastifyInstance, db: Db, cfg: Config): Auth {
     async (req) => {
       const user = await requireUser(req);
       const b = req.body;
-      db.prepare(
-        `UPDATE users SET display_name = ?, avatar_color = ?, school = ?, subject = ?, grade = ?, onboarded = ? WHERE id = ?`,
-      ).run(
+      db.prepare('UPDATE users SET display_name = ?, avatar_color = ?, about = ?, use_cases = ?, onboarded = ? WHERE id = ?').run(
         b.displayName?.trim() ?? user.display_name,
         b.avatarColor ?? user.avatar_color,
-        b.school?.trim() ?? user.school,
-        b.subject?.trim() ?? user.subject,
-        b.grade?.trim() ?? user.grade,
+        b.about?.trim() ?? user.about,
+        b.useCases ? b.useCases.join(',') : user.use_cases,
         b.onboarded === undefined ? user.onboarded : Number(b.onboarded),
         user.id,
       );
@@ -150,5 +133,5 @@ export function registerAuth(app: FastifyInstance, db: Db, cfg: Config): Auth {
     },
   );
 
-  return { requireUser, optionalUser, requireTeacher };
+  return { requireUser, optionalUser };
 }

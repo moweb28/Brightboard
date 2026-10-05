@@ -2,16 +2,16 @@ import { formatRoomCode } from '@classroom/protocol';
 
 export const APP_PROTOCOL = 'brightboard';
 
-/** The page a student lands on from an invite link. Tries to open the app, with a download fallback. */
+/** The page someone lands on from an invite link. Tries to open the app, with a download fallback. */
 export function invitePage(code: string | null, downloadUrl: string, title?: string): string {
   const appLink = code ? `${APP_PROTOCOL}://join/${code}` : '';
   const body = code
-    ? `<h1>${title ? escapeHtml(title) : 'Join class'} <span class="code">${formatRoomCode(code)}</span></h1>
+    ? `<h1>${title ? escapeHtml(title) : 'Join on Brightboard'} <span class="code">${formatRoomCode(code)}</span></h1>
        <p>Opening Brightboard… <span dir="rtl">جارٍ فتح Brightboard…</span></p>
        <a class="btn" href="${appLink}">Open Brightboard</a>
        <p class="small">Don't have the app yet? <a href="${downloadUrl}">Download Brightboard</a></p>
        <script>setTimeout(function(){ location.href = ${JSON.stringify(appLink)}; }, 300);</script>`
-    : `<h1>Class not found</h1><p>Check the link with your teacher.</p><p dir="rtl">لم يتم العثور على الفصل. تحقق من الرابط مع معلمك.</p>`;
+    : `<h1>Space not found</h1><p>Check the link with whoever invited you.</p><p dir="rtl">لم يتم العثور على المساحة. تحقق من الرابط مع من دعاك.</p>`;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Brightboard</title>

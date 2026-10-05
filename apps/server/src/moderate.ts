@@ -1,7 +1,7 @@
 import type { ModerateAction, ParticipantMeta } from '@classroom/protocol';
 import type { FastifyInstance } from 'fastify';
 import { HttpError, type Auth } from './auth';
-import type { ClassStore } from './classStore';
+import type { SpaceStore } from './spaceStore';
 import type { Db } from './db';
 import { sourcesFor, type RoomControl, type RoomParticipant } from './roomControl';
 
@@ -9,15 +9,15 @@ const parseMeta = (p: RoomParticipant): ParticipantMeta => {
   try {
     return JSON.parse(p.metadata) as ParticipantMeta;
   } catch {
-    return { role: 'student' };
+    return { role: 'guest' };
   }
 };
 
 const ACTIONS = ['mute', 'stopVideo', 'remove', 'admit', 'muteAll', 'admitAll', 'allowShare', 'lock', 'chat', 'spotlight'];
 
-export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store: ClassStore, rc: RoomControl) {
+export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store: SpaceStore, rc: RoomControl) {
   app.post<{ Params: { id: string }; Body: ModerateAction }>(
-    '/classes/:id/moderate',
+    '/spaces/:id/moderate',
     {
       schema: {
         body: {
@@ -28,18 +28,18 @@ export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store
       },
     },
     async (req, reply) => {
-      const teacher = await auth.requireUser(req);
-      const c = store.findOwned(Number(req.params.id), teacher.id);
-      if (!store.openSession(c.id)) throw new HttpError(409, 'Class is not live', 'notLive');
+      const user = await auth.requireUser(req);
+      const c = store.findHosted(Number(req.params.id), user.id);
+      if (!store.openCall(c.id)) throw new HttpError(409, 'This space is not live', 'notLive');
       const body = req.body;
       const participants = await rc.listParticipants(c.code);
-      const students = participants.filter((p) => parseMeta(p).role !== 'teacher');
+      const guests = participants.filter((p) => parseMeta(p).role !== 'host');
 
       const target = () => {
         const identity = 'identity' in body ? body.identity : null;
         const p = participants.find((x) => x.identity === identity);
-        if (!p) throw new HttpError(404, 'That person is no longer in the class', 'gone');
-        if (parseMeta(p).role === 'teacher') throw new HttpError(400, 'You cannot moderate yourself', 'self');
+        if (!p) throw new HttpError(404, 'That person is no longer here', 'gone');
+        if (parseMeta(p).role === 'host') throw new HttpError(400, 'You cannot moderate yourself', 'self');
         return p;
       };
       const muteSource = async (p: RoomParticipant, source: string) => {
@@ -51,10 +51,10 @@ export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store
           canPublish: true,
           canPublishData: true,
           canUpdateMetadata: true,
-          canPublishSources: sourcesFor(!!c.students_can_share),
+          canPublishSources: sourcesFor(!!c.guests_can_share),
         });
-      const updateClass = async (column: 'locked' | 'chat_enabled' | 'spotlight', value: number | string | null) => {
-        db.prepare(`UPDATE classes SET ${column} = ? WHERE id = ?`).run(value, c.id);
+      const updateSpace = async (column: 'locked' | 'chat_enabled' | 'spotlight', value: number | string | null) => {
+        db.prepare(`UPDATE spaces SET ${column} = ? WHERE id = ?`).run(value, c.id);
         await rc.setRoomMetadata(c.code, JSON.stringify(store.roomMeta(store.byId(c.id)!)));
       };
 
@@ -72,10 +72,10 @@ export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store
           await admit(target());
           break;
         case 'muteAll':
-          for (const p of students) await muteSource(p, 'MICROPHONE');
+          for (const p of guests) await muteSource(p, 'MICROPHONE');
           break;
         case 'admitAll':
-          for (const p of students.filter((p) => parseMeta(p).waiting)) await admit(p);
+          for (const p of guests.filter((p) => parseMeta(p).waiting)) await admit(p);
           break;
         case 'allowShare': {
           const p = target();
@@ -83,14 +83,14 @@ export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store
           break;
         }
         case 'lock':
-          await updateClass('locked', Number(body.value));
+          await updateSpace('locked', Number(body.value));
           break;
         case 'chat':
-          await updateClass('chat_enabled', Number(body.value));
+          await updateSpace('chat_enabled', Number(body.value));
           break;
         case 'spotlight':
           if (body.identity) target();
-          await updateClass('spotlight', body.identity ?? null);
+          await updateSpace('spotlight', body.identity ?? null);
           break;
       }
       reply.code(204);

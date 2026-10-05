@@ -1,4 +1,3 @@
-import type { Role } from '@classroom/protocol';
 import { buildApp } from '../src/app';
 import type { Config } from '../src/config';
 import type { RoomControl } from '../src/roomControl';
@@ -43,16 +42,16 @@ export function makeApp() {
 
 export type TestApp = ReturnType<typeof makeApp>;
 
-export async function register(app: TestApp, role: Role = 'teacher', email = `${role}@example.com`) {
-  const res = await app.inject({ method: 'POST', url: '/auth/register', payload: { email, password: 'password123', role } });
+export async function register(app: TestApp, email = 'host@example.com') {
+  const res = await app.inject({ method: 'POST', url: '/auth/register', payload: { email, password: 'password123' } });
   if (res.statusCode !== 201) throw new Error(`register failed: ${res.body}`);
   return res.json().token as string;
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 
-export async function createClass(app: TestApp, token: string, body: Record<string, unknown> = {}) {
-  const res = await app.inject({ method: 'POST', url: '/classes', headers: bearer(token), payload: { title: 'Math 101', password: '4821', ...body } });
-  if (res.statusCode !== 201) throw new Error(`create class failed: ${res.body}`);
+export async function createSpace(app: TestApp, token: string, body: Record<string, unknown> = {}) {
+  const res = await app.inject({ method: 'POST', url: '/spaces', headers: bearer(token), payload: { title: 'Math 101', kind: 'hangout', password: '4821', ...body } });
+  if (res.statusCode !== 201) throw new Error(`create space failed: ${res.body}`);
   return res.json();
 }
