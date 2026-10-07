@@ -34,7 +34,7 @@ const DEFAULTS: Settings = {
   speakerId: '',
   mirror: true,
   joinMuted: false,
-  joinCameraOff: false,
+  joinCameraOff: true,
   background: 'none',
   soundChat: true,
   soundJoin: true,
