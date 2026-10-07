@@ -1,10 +1,12 @@
 import type { ModerateAction, RoomMeta } from '@classroom/protocol';
 import { isTrackReference, useIsSpeaking, useTracks, VideoTrack, type TrackReferenceOrPlaceholder } from '@livekit/components-react';
 import { Track, type Room } from 'livekit-client';
-import { Crown, EyeOff, MicOff, MonitorUp, MoreHorizontal, Pin, Star } from 'lucide-react';
+import { Crown, EyeOff, Loader2, MicOff, MonitorUp, MoreHorizontal, MousePointer2, Pin, Star } from 'lucide-react';
 import { Avatar, IconButton, Menu } from '../components/ui';
 import { useSettings, useT } from '../lib/settings';
 import { participantActions } from './moderation';
+import { RemoteSurface } from './RemoteSurface';
+import type { Remote } from './useRemote';
 import { colorOf, handUp, isAway, isHost, isWaiting, nameOf } from './participants';
 
 export type Layout = 'grid' | 'speaker';
@@ -17,6 +19,7 @@ interface Props {
   pinned: string | null;
   setPinned: (id: string | null) => void;
   moderate: (a: ModerateAction) => void;
+  remote: Remote;
 }
 
 const keyOf = (r: TrackReferenceOrPlaceholder) => `${r.participant.identity}:${r.source}`;
@@ -29,7 +32,7 @@ function gridColumns(n: number) {
   return 5;
 }
 
-export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate }: Props) {
+export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate, remote }: Props) {
   const refs = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -47,7 +50,7 @@ export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate 
     cameraOf(pinned) ?? cameraOf(meta.spotlight) ?? shares[0] ?? (layout === 'speaker' && cameras.length > 1 ? (cameraOf(speaker?.identity ?? null) ?? cameras.find((r) => !r.participant.isLocal)) : undefined);
 
   const tile = (r: TrackReferenceOrPlaceholder, size: 'grid' | 'focus' | 'strip') => (
-    <Tile key={keyOf(r)} trackRef={r} size={size} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} />
+    <Tile key={keyOf(r)} trackRef={r} size={size} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} remote={remote} />
   );
 
   if (focus) {
@@ -75,9 +78,10 @@ interface TileProps {
   pinned: string | null;
   setPinned: (id: string | null) => void;
   moderate: (a: ModerateAction) => void;
+  remote: Remote;
 }
 
-function Tile({ trackRef, size, meta, amHost, pinned, setPinned, moderate }: TileProps) {
+function Tile({ trackRef, size, meta, amHost, pinned, setPinned, moderate, remote }: TileProps) {
   const t = useT();
   const { settings } = useSettings();
   const p = trackRef.participant;
@@ -131,10 +135,32 @@ function Tile({ trackRef, size, meta, amHost, pinned, setPinned, moderate }: Til
         {!isShare && !p.isMicrophoneEnabled && <MicOff size={15} className="icon-off" aria-label="muted" />}
       </div>
 
+      {isShare && amHost && !p.isLocal && size !== 'strip' && <ShareControl remote={remote} identity={p.identity} name={name} />}
+
       {!isShare && actions.some((a) => !a.hidden) && (
         <div className="tile-menu">
           <Menu trigger={(open) => <IconButton icon={MoreHorizontal} label={t.meeting.moreActions} onClick={open} />} items={actions} />
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Host-only controls on a guest's shared screen: ask for control, wait, or drive it. */
+function ShareControl({ remote, identity, name }: { remote: Remote; identity: string; name: string }) {
+  const t = useT();
+  const state = remote.sessions[identity];
+  if (state === 'active') return <RemoteSurface name={name} send={(e) => remote.send(identity, e)} onRelease={() => remote.release(identity)} />;
+  return (
+    <div className="share-control">
+      {state === 'pending' ? (
+        <span className="share-control-btn is-pending">
+          <Loader2 size={16} className="spin" /> {t.remote.pending(name)}
+        </span>
+      ) : (
+        <button className="share-control-btn" onClick={() => remote.request(identity)} title={t.remote.requestHint}>
+          <MousePointer2 size={16} /> {t.remote.request}
+        </button>
       )}
     </div>
   );

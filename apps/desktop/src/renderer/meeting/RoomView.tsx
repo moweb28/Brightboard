@@ -11,6 +11,7 @@ import {
   MicOff,
   MonitorUp,
   MonitorX,
+  MousePointer2,
   PhoneOff,
   Send,
   Settings as SettingsIcon,
@@ -42,6 +43,7 @@ import { QUICK_REACTIONS, ReactionLayer, useReactions } from './Reactions';
 import { ScreenPicker } from './ScreenPicker';
 import { Stage, type Layout } from './Stage';
 import { useChat } from './useChat';
+import { useRemote } from './useRemote';
 
 interface Props {
   join: JoinInfo;
@@ -79,6 +81,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
     if (panel !== 'chat') toast({ icon: MessageSquare, text: `${m.fromName}: ${m.text.slice(0, 80)}`, action: { label: t.meeting.chat, onClick: () => setPanel('chat') } });
   });
   const reactions = useReactions(room);
+  const remote = useRemote(room);
 
   // Clock in the header.
   useEffect(() => {
@@ -226,6 +229,14 @@ export function RoomView({ join, choices, invitePassword }: Props) {
             </button>
           </span>
         )}
+        {remote.controller && (
+          <span className="chip chip-danger">
+            <MousePointer2 size={14} /> {t.remote.overlay(remote.controller.name)}
+            <button className="chip-action" onClick={remote.stopBeingControlled}>
+              {t.remote.overlayStop}
+            </button>
+          </span>
+        )}
         <div className="spacer" />
         {amHost && (
           <Button size="sm" icon={Send} onClick={() => setInviteOpen(true)}>
@@ -236,7 +247,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
 
       <div className="room-body">
         <div className="room-stage">
-          <Stage room={room} meta={meta} layout={layout} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} />
+          <Stage room={room} meta={meta} layout={layout} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} remote={remote} />
           <ReactionLayer items={reactions.items} />
         </div>
         {panel === 'chat' && <ChatPanel room={room} chat={chat} canSend={chatAllowed} onClose={() => setPanel(null)} />}
@@ -276,6 +287,24 @@ export function RoomView({ join, choices, invitePassword }: Props) {
         </nav>
       </footer>
 
+      {remote.incoming && (
+        <Modal
+          title={t.remote.askTitle(remote.incoming.name)}
+          onClose={() => remote.answer(false)}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => remote.answer(false)}>
+                {t.remote.deny}
+              </Button>
+              <Button icon={MousePointer2} onClick={() => remote.answer(true)} autoFocus>
+                {t.remote.allow}
+              </Button>
+            </>
+          }
+        >
+          <p className="muted">{t.remote.askText}</p>
+        </Modal>
+      )}
       {picker && <ScreenPicker onCancel={() => setPicker(false)} onShare={shareSource} />}
       {devicesOpen && <MeetingSettings room={room} onClose={() => setDevicesOpen(false)} />}
       {inviteOpen && (

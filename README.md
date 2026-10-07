@@ -17,6 +17,14 @@ npm run dev:desktop   # opens the app
 2. Click **Start now** for an instant space, or **New space** to pick Hangout / Meeting / Class / Event.
 3. Click **Invite** and share the link. People can join with an account or as a guest; a password is optional.
 
+## Remote control (Parsec-style)
+
+When a guest shares their **whole screen**, the host sees **Request control** on it. If the guest clicks **Allow**,
+the host's mouse and keyboard over that screen drive the guest's computer. The guest always sees a red
+"being controlled" bar with **Stop**, and **Ctrl+Alt+Q** stops it instantly (the host can never send that shortcut).
+Control also ends when the share stops, either person leaves, or after 60 seconds without input.
+On macOS the guest must allow Brightboard under Privacy & Security → Accessibility.
+
 ## Testing with other computers on your network
 
 Start the class server with your computer's LAN IP so students get the right video address:

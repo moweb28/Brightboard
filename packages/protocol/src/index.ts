@@ -1,5 +1,6 @@
 export * from './roomCode';
 export * from './chat';
+export * from './remote';
 
 /** In a call: whoever created the space hosts; everyone else is a guest. */
 export type Role = 'host' | 'guest';

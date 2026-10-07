@@ -8,6 +8,9 @@ export interface ScreenSource {
   icon: string | null;
 }
 
+export type RemoteGrantResult = { ok: true } | { ok: false; reason: 'notScreen' | 'permission' | 'unavailable' };
+export type RemoteEndReason = 'local' | 'remote' | 'idle' | 'shareEnded';
+
 export interface BrightboardBridge {
   /** Class code from the link that launched the app, if any (returned once). */
   takePendingJoin(): Promise<string | null>;
@@ -17,6 +20,16 @@ export interface BrightboardBridge {
   getScreenSources(): Promise<ScreenSource[]>;
   /** Chooses what the next screen-share request will capture. */
   selectScreenSource(id: string): Promise<void>;
+  /** Tells the app this computer stopped sharing its screen. */
+  screenShareStopped(): void;
+  remote: {
+    /** Let `controller` drive this computer (shows the red "being controlled" bar). */
+    grant(args: { controller: string; text: string; stopLabel: string; rtl: boolean }): Promise<RemoteGrantResult>;
+    /** Forward one input event; the main process checks it came from the granted controller. */
+    input(from: string, event: unknown): void;
+    stop(remote: boolean): Promise<void>;
+    onEnded(callback: (reason: RemoteEndReason) => void): () => void;
+  };
 }
 
 const bridge: BrightboardBridge = {
@@ -28,6 +41,17 @@ const bridge: BrightboardBridge = {
   },
   getScreenSources: () => ipcRenderer.invoke('screen:sources'),
   selectScreenSource: (id) => ipcRenderer.invoke('screen:select', id),
+  screenShareStopped: () => ipcRenderer.send('screen:stopped'),
+  remote: {
+    grant: (args) => ipcRenderer.invoke('remote:grant', args),
+    input: (from, event) => ipcRenderer.send('remote:input', from, event),
+    stop: (remote) => ipcRenderer.invoke('remote:stop', remote),
+    onEnded: (callback) => {
+      const listener = (_e: unknown, reason: RemoteEndReason) => callback(reason);
+      ipcRenderer.on('remote:ended', listener);
+      return () => ipcRenderer.removeListener('remote:ended', listener);
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld('brightboard', bridge);

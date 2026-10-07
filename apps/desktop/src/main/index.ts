@@ -2,6 +2,7 @@ import { extractRoomCode } from '@classroom/protocol';
 import { app, BrowserWindow, desktopCapturer, ipcMain, session, shell } from 'electron';
 import { join, resolve } from 'node:path';
 import icon from '../../build/icon.png?asset';
+import { registerRemoteControl, setSharedSource } from './remote';
 
 const PROTOCOL = 'brightboard';
 const ALLOWED_PERMISSIONS = new Set(['media', 'display-capture', 'clipboard-sanitized-write', 'fullscreen']);
@@ -58,6 +59,8 @@ if (!app.requestSingleInstanceLock()) {
           icon: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : null,
         }));
     });
+    ipcMain.on('screen:stopped', () => setSharedSource(null));
+    registerRemoteControl(() => mainWindow);
     ipcMain.handle('screen:select', (_e, id: string) => {
       selectedScreenSource = typeof id === 'string' ? id : null;
     });
@@ -68,6 +71,7 @@ if (!app.requestSingleInstanceLock()) {
       selectedScreenSource = null;
       const source = id && (await desktopCapturer.getSources({ types: ['screen', 'window'] })).find((s) => s.id === id);
       if (!source) return callback({});
+      setSharedSource(source.id);
       const wantsAudio = request.audioRequested && process.platform === 'win32';
       callback(wantsAudio ? { video: source, audio: 'loopback' } : { video: source });
     });
