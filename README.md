@@ -27,11 +27,11 @@ The admin can lock it so only they draw. Late joiners get the full board.
 
 ## Recording and transcript (admin)
 
-- **Recording** saves what the admin sees plus everyone's voices to . When a session starts the
+- **Recording** saves what the admin sees plus everyone's voices to `Videos/Brightboard`. When a session starts the
   app asks "Record this session?" (and reminds once after 5 minutes). Everyone sees a REC indicator.
 - **Transcript** turns speech into text on the admin's computer (Whisper, Arabic + English; the model downloads once,
   ~80 MB or ~250 MB for high accuracy). Choose *Only me* or *Everyone* (everyone then sees a notice). Saved as a
-   in  when stopped or when the admin leaves.
+  `.txt` in `Documents/Brightboard` when stopped or when the admin leaves.
 
 ## Remote control (Parsec-style)
 
