@@ -2,6 +2,7 @@ import { extractRoomCode } from '@classroom/protocol';
 import { app, BrowserWindow, desktopCapturer, ipcMain, session, shell } from 'electron';
 import { join, resolve } from 'node:path';
 import icon from '../../build/icon.png?asset';
+import { registerFileHandlers } from './files';
 import { registerRemoteControl, setSharedSource } from './remote';
 
 const PROTOCOL = 'brightboard';
@@ -14,6 +15,10 @@ let pendingJoinCode: string | null = null;
 let selectedScreenSource: string | null = null;
 
 app.setName('Brightboard');
+// Keep painting while the window is covered by other apps, so recordings and shares never freeze.
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 // Register brightboard:// links. In dev, Electron runs as `electron <app dir>`, so pass the app path too.
 if (process.defaultApp && process.argv[1]) app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [resolve(process.argv[1])]);
@@ -61,6 +66,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     ipcMain.on('screen:stopped', () => setSharedSource(null));
     registerRemoteControl(() => mainWindow);
+    registerFileHandlers(() => mainWindow);
     ipcMain.handle('screen:select', (_e, id: string) => {
       selectedScreenSource = typeof id === 'string' ? id : null;
     });
@@ -91,7 +97,7 @@ function createWindow() {
     icon,
     backgroundColor: '#FFF9F0',
     autoHideMenuBar: true,
-    webPreferences: { preload: join(import.meta.dirname, '../preload/index.cjs'), contextIsolation: true, sandbox: true },
+    webPreferences: { preload: join(import.meta.dirname, '../preload/index.cjs'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
   mainWindow.on('closed', () => (mainWindow = null));
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

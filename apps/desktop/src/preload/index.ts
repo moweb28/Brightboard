@@ -22,6 +22,15 @@ export interface BrightboardBridge {
   selectScreenSource(id: string): Promise<void>;
   /** Tells the app this computer stopped sharing its screen. */
   screenShareStopped(): void;
+  files: {
+    /** Media source id of this app window, for recording what the user sees. */
+    windowSource(): Promise<string | null>;
+    startRecording(title: string): Promise<{ id: number; path: string }>;
+    writeRecording(id: number, chunk: ArrayBuffer): void;
+    stopRecording(id: number): Promise<string | null>;
+    saveTranscript(title: string, startedAt: number, text: string): Promise<string>;
+    reveal(path: string): Promise<void>;
+  };
   remote: {
     /** Let `controller` drive this computer (shows the red "being controlled" bar). */
     grant(args: { controller: string; text: string; stopLabel: string; rtl: boolean }): Promise<RemoteGrantResult>;
@@ -42,6 +51,14 @@ const bridge: BrightboardBridge = {
   getScreenSources: () => ipcRenderer.invoke('screen:sources'),
   selectScreenSource: (id) => ipcRenderer.invoke('screen:select', id),
   screenShareStopped: () => ipcRenderer.send('screen:stopped'),
+  files: {
+    windowSource: () => ipcRenderer.invoke('rec:windowSource'),
+    startRecording: (title) => ipcRenderer.invoke('rec:start', title),
+    writeRecording: (id, chunk) => ipcRenderer.send('rec:chunk', id, chunk),
+    stopRecording: (id) => ipcRenderer.invoke('rec:stop', id),
+    saveTranscript: (title, startedAt, text) => ipcRenderer.invoke('transcript:save', title, startedAt, text),
+    reveal: (path) => ipcRenderer.invoke('file:reveal', path),
+  },
   remote: {
     grant: (args) => ipcRenderer.invoke('remote:grant', args),
     input: (from, event) => ipcRenderer.send('remote:input', from, event),

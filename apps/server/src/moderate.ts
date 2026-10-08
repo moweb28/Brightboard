@@ -13,7 +13,7 @@ const parseMeta = (p: RoomParticipant): ParticipantMeta => {
   }
 };
 
-const ACTIONS = ['mute', 'stopVideo', 'remove', 'admit', 'muteAll', 'admitAll', 'allowShare', 'lock', 'chat', 'spotlight'];
+const ACTIONS = ['mute', 'stopVideo', 'remove', 'admit', 'muteAll', 'admitAll', 'allowShare', 'lock', 'chat', 'recording', 'spotlight'];
 
 export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store: SpaceStore, rc: RoomControl) {
   app.post<{ Params: { id: string }; Body: ModerateAction }>(
@@ -53,7 +53,7 @@ export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store
           canUpdateMetadata: true,
           canPublishSources: sourcesFor(!!c.guests_can_share),
         });
-      const updateSpace = async (column: 'locked' | 'chat_enabled' | 'spotlight', value: number | string | null) => {
+      const updateSpace = async (column: 'locked' | 'chat_enabled' | 'recording' | 'spotlight', value: number | string | null) => {
         db.prepare(`UPDATE spaces SET ${column} = ? WHERE id = ?`).run(value, c.id);
         await rc.setRoomMetadata(c.code, JSON.stringify(store.roomMeta(store.byId(c.id)!)));
       };
@@ -87,6 +87,9 @@ export function registerModerate(app: FastifyInstance, db: Db, auth: Auth, store
           break;
         case 'chat':
           await updateSpace('chat_enabled', Number(body.value));
+          break;
+        case 'recording':
+          await updateSpace('recording', Number(body.value));
           break;
         case 'spotlight':
           if (body.identity) target();

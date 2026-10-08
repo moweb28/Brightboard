@@ -11,6 +11,7 @@ import {
   MicOff,
   MonitorUp,
   MonitorX,
+  CircleDot,
   MousePointer2,
   PhoneOff,
   Send,
@@ -43,6 +44,7 @@ import { QUICK_REACTIONS, ReactionLayer, useReactions } from './Reactions';
 import { ScreenPicker } from './ScreenPicker';
 import { Stage, type Layout } from './Stage';
 import { useChat } from './useChat';
+import { useRecording } from './useRecording';
 import { useRemote } from './useRemote';
 
 interface Props {
@@ -82,6 +84,8 @@ export function RoomView({ join, choices, invitePassword }: Props) {
   });
   const reactions = useReactions(room);
   const remote = useRemote(room);
+  const rec = useRecording(room, join, connection, moderate);
+  const [dontAskRecord, setDontAskRecord] = useState(false);
 
   // Clock in the header.
   useEffect(() => {
@@ -172,7 +176,12 @@ export function RoomView({ join, choices, invitePassword }: Props) {
     await local.setScreenShareEnabled(true, { audio, selfBrowserSurface: 'exclude', surfaceSwitching: 'exclude' }).catch(() => undefined);
   };
 
+  const leave = async () => {
+    await rec.stop();
+    room.disconnect();
+  };
   const endForAll = async () => {
+    await rec.stop();
     await api.end(join.spaceId).catch(() => undefined);
     room.disconnect();
   };
@@ -211,6 +220,11 @@ export function RoomView({ join, choices, invitePassword }: Props) {
         <span className="chip chip-code" dir="ltr">
           {formatRoomCode(join.roomName)}
         </span>
+        {meta.recording && (
+          <span className="chip chip-rec">
+            <span className="rec-dot" aria-hidden /> {t.recording.chip}
+          </span>
+        )}
         {meta.locked && (
           <span className="chip chip-warn">
             <Lock size={14} /> {t.meeting.locked}
@@ -271,22 +285,49 @@ export function RoomView({ join, choices, invitePassword }: Props) {
           <Ctrl icon={Users} label={t.meeting.people} active={panel === 'people'} badge={guestsWaiting} count={people} onClick={() => setPanel(panel === 'people' ? null : 'people')} />
           <span className="dock-sep" aria-hidden />
           <Ctrl icon={layout === 'grid' ? SquareUserRound : LayoutGrid} label={layout === 'grid' ? t.meeting.speaker : t.meeting.grid} onClick={() => setLayout(layout === 'grid' ? 'speaker' : 'grid')} />
+          {rec.available && (
+            <Ctrl icon={CircleDot} label={rec.recording ? t.recording.stop : t.recording.record} active={rec.recording} rec onClick={() => (rec.recording ? rec.stop() : rec.start())} />
+          )}
           <Ctrl icon={SettingsIcon} label={t.meeting.settings} onClick={() => setDevicesOpen(true)} />
           {amHost ? (
             <Menu
               up
               trigger={(open) => <LeaveButton label={t.meeting.leave} onClick={open} />}
               items={[
-                { icon: LogOut, label: t.meeting.leaveSpace, onClick: () => room.disconnect() },
+                { icon: LogOut, label: t.meeting.leaveSpace, onClick: leave },
                 { icon: PhoneOff, label: t.meeting.endForAll, onClick: endForAll, danger: true },
               ]}
             />
           ) : (
-            <LeaveButton label={t.meeting.leave} onClick={() => room.disconnect()} />
+            <LeaveButton label={t.meeting.leave} onClick={leave} />
           )}
         </nav>
       </footer>
 
+      {rec.asking && (
+        <Modal
+          title={t.recording.promptTitle}
+          onClose={() => rec.answer(false, dontAskRecord)}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => rec.answer(false, dontAskRecord)}>
+                {t.recording.notNow}
+              </Button>
+              <Button icon={CircleDot} onClick={() => rec.answer(true, dontAskRecord)} autoFocus>
+                {t.recording.start}
+              </Button>
+            </>
+          }
+        >
+          <div className="stack">
+            <p className="muted">{t.recording.promptText}</p>
+            <label className="check-row">
+              <input type="checkbox" checked={dontAskRecord} onChange={(e) => setDontAskRecord(e.target.checked)} />
+              {t.recording.dontAsk}
+            </label>
+          </div>
+        </Modal>
+      )}
       {remote.incoming && (
         <Modal
           title={t.remote.askTitle(remote.incoming.name)}
@@ -326,9 +367,9 @@ function LeaveButton({ label, onClick }: { label: string; onClick: () => void })
 }
 
 /** Round dock button; the label shows as a tooltip above it. */
-function Ctrl({ icon: Icon, label, onClick, off, active, badge, count }: { icon: LucideIcon; label: string; onClick: () => void; off?: boolean; active?: boolean; badge?: number; count?: number }) {
+function Ctrl({ icon: Icon, label, onClick, off, active, rec, badge, count }: { icon: LucideIcon; label: string; onClick: () => void; off?: boolean; active?: boolean; rec?: boolean; badge?: number; count?: number }) {
   return (
-    <button className={`dock-btn ${off ? 'is-off' : ''} ${active ? 'is-active' : ''}`} onClick={onClick} aria-pressed={active} aria-label={label} data-tip={label}>
+    <button className={`dock-btn ${off ? 'is-off' : ''} ${active ? 'is-active' : ''} ${rec ? 'is-rec' : ''}`} onClick={onClick} aria-pressed={active} aria-label={label} data-tip={label}>
       <Icon size={21} strokeWidth={2.2} />
       {!!badge && <span className="dock-badge">{badge > 99 ? '99+' : badge}</span>}
       {!badge && count !== undefined && <span className="dock-count">{count}</span>}

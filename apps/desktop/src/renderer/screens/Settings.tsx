@@ -1,11 +1,11 @@
 import { AVATAR_COLORS, USE_CASES, type UseCase } from '@classroom/protocol';
-import { Bell, Check, Languages, LogOut, Palette, ShieldCheck, User, Video } from 'lucide-react';
+import { Bell, Check, CircleDot, Languages, LogOut, Palette, ShieldCheck, User, Video } from 'lucide-react';
 import { useState } from 'react';
 import { LanguagePicker, ScenePicker, ThemePicker } from '../components/AppearancePicker';
 import { DeviceCheck } from '../components/DeviceCheck';
 import { AppShell } from '../components/layout';
 import { useToast } from '../components/toast';
-import { Avatar, Button, ColorPicker, ErrorText, Field, Toggle } from '../components/ui';
+import { Avatar, Button, ColorPicker, ErrorText, Field, Segmented, Toggle } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { BACKGROUND_IMAGES, backgroundsSupported } from '../lib/effects';
@@ -13,7 +13,7 @@ import { BACKGROUNDS, useSettings, useT } from '../lib/settings';
 import { USE_CASE_ICONS } from './Onboarding';
 import { useAsync } from '../lib/useAsync';
 
-type Section = 'profile' | 'appearance' | 'language' | 'audioVideo' | 'notifications' | 'account';
+type Section = 'profile' | 'appearance' | 'language' | 'audioVideo' | 'sessions' | 'notifications' | 'account';
 
 export function SettingsPage() {
   const t = useT();
@@ -23,6 +23,7 @@ export function SettingsPage() {
     { id: 'appearance', icon: Palette, label: t.settings.appearance },
     { id: 'language', icon: Languages, label: t.settings.language },
     { id: 'audioVideo', icon: Video, label: t.settings.audioVideo },
+    { id: 'sessions', icon: CircleDot, label: t.recording.section },
     { id: 'notifications', icon: Bell, label: t.settings.notifications },
     { id: 'account', icon: ShieldCheck, label: t.settings.account },
   ];
@@ -52,6 +53,7 @@ export function SettingsPage() {
               </div>
             )}
             {section === 'audioVideo' && <AudioVideoSection />}
+            {section === 'sessions' && <SessionsSection />}
             {section === 'notifications' && <NotificationsSection />}
             {section === 'account' && <AccountSection />}
           </div>
@@ -155,6 +157,31 @@ function AudioVideoSection() {
       <Toggle label={t.settings.mirrorVideo} description={t.settings.mirrorVideoDesc} checked={settings.mirror} onChange={(v) => set('mirror', v)} />
       <Toggle label={t.settings.joinMuted} checked={settings.joinMuted} onChange={(v) => set('joinMuted', v)} />
       <Toggle label={t.settings.joinCameraOff} checked={settings.joinCameraOff} onChange={(v) => set('joinCameraOff', v)} />
+    </div>
+  );
+}
+
+function SessionsSection() {
+  const t = useT();
+  const { settings, set } = useSettings();
+  return (
+    <div className="stack">
+      <div className="field">
+        <span className="field-label">{t.recording.whenAdmin}</span>
+        <Segmented
+          label={t.recording.whenAdmin}
+          value={settings.recordPrompt}
+          onChange={(v) => {
+            set('recordPrompt', v);
+            if (v === 'ask') set('noRecordAsk', []);
+          }}
+          options={[
+            { value: 'ask', label: t.recording.ask },
+            { value: 'always', label: t.recording.always },
+            { value: 'never', label: t.recording.never },
+          ]}
+        />
+      </div>
     </div>
   );
 }

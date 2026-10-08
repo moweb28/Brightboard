@@ -76,3 +76,24 @@ describe('moderation', () => {
     expect((await mod({ action: 'explode' })).statusCode).toBe(400);
   });
 });
+
+describe('recording flag', () => {
+  it('the admin can mark the call as recorded, and a new call starts unrecorded', async () => {
+    const { app, c, host, mod } = await setup();
+    expect((await mod({ action: 'recording', value: true })).statusCode).toBe(204);
+    expect(JSON.parse(app.rc.callsTo('setRoomMetadata').at(-1)![1] as string).recording).toBe(true);
+    await app.inject({ method: 'POST', url: `/spaces/${c.id}/end`, headers: bearer(host) });
+    await app.inject({ method: 'POST', url: `/spaces/${c.id}/start`, headers: bearer(host) });
+    expect(JSON.parse(app.rc.callsTo('ensureRoom').at(-1)![1] as string).recording).toBe(false);
+  });
+});
+
+describe('recording flag after a crash', () => {
+  it('rejoining an open call clears a stale recording flag (only the admin records)', async () => {
+    const { app, c, host, mod } = await setup();
+    await mod({ action: 'recording', value: true });
+    // Admin's app restarts and starts the space again while the call is still open.
+    await app.inject({ method: 'POST', url: `/spaces/${c.id}/start`, headers: bearer(host) });
+    expect(JSON.parse(app.rc.callsTo('ensureRoom').at(-1)![1] as string).recording).toBe(false);
+  });
+});

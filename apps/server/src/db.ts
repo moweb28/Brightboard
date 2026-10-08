@@ -33,6 +33,7 @@ export function openDb(path: string): Db {
       chat_enabled INTEGER NOT NULL DEFAULT 1,
       locked INTEGER NOT NULL DEFAULT 0,
       spotlight TEXT,
+      recording INTEGER NOT NULL DEFAULT 0,
       archived INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
     );
@@ -58,5 +59,12 @@ export function openDb(path: string): Db {
       PRIMARY KEY (space_id, user_id)
     );
   `);
+  // Columns added after the first release of this schema.
+  addColumnIfMissing(db, 'spaces', 'recording', 'INTEGER NOT NULL DEFAULT 0');
   return db;
+}
+
+function addColumnIfMissing(db: Db, table: string, column: string, definition: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }

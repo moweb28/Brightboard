@@ -626,3 +626,10 @@ button { font: inherit; color: inherit; }
 .remote-release { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 999px; padding: 7px 12px; background: #fff; color: #1f2340; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .chip-danger { background: var(--danger); color: #fff; border-color: transparent; }
 .preview-start { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; padding: 10px 18px; background: #fff; color: #1f2340; font-weight: 600; cursor: pointer; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+
+/* ================= Recording ================= */
+.chip-rec { color: var(--live); font-weight: 700; letter-spacing: 0.06em; }
+.rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--live); animation: pulse 1.4s ease-in-out infinite; }
+.dock-btn.is-rec.is-active { background: var(--live); color: #fff; }
+.check-row { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: var(--ink-2); cursor: pointer; }
+.check-row input { width: 18px; height: 18px; accent-color: var(--primary); }

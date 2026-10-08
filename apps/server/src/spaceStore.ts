@@ -21,6 +21,7 @@ export interface SpaceRow {
   chat_enabled: number;
   locked: number;
   spotlight: string | null;
+  recording: number;
   archived: number;
 }
 
@@ -78,6 +79,7 @@ export function spaceStore(db: Db, cfg: Config) {
     chatEnabled: !!s.chat_enabled,
     locked: !!s.locked,
     spotlight: s.spotlight,
+    recording: !!s.recording,
   });
 
   const byId = (id: number) => db.prepare('SELECT * FROM spaces WHERE id = ? AND archived = 0').get(id) as SpaceRow | undefined;

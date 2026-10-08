@@ -23,6 +23,10 @@ export interface Settings {
   soundChat: boolean;
   soundJoin: boolean;
   soundHand: boolean;
+  /** Admin: what to do about recording when a session starts. */
+  recordPrompt: 'ask' | 'always' | 'never';
+  /** Spaces where the admin chose "don't ask again". */
+  noRecordAsk: number[];
 }
 
 const DEFAULTS: Settings = {
@@ -39,6 +43,8 @@ const DEFAULTS: Settings = {
   soundChat: true,
   soundJoin: true,
   soundHand: true,
+  recordPrompt: 'ask',
+  noRecordAsk: [],
 };
 
 const KEY = 'settings';

@@ -1,6 +1,7 @@
 import type { ModerateAction, RoomMeta } from '@classroom/protocol';
 import { Track, type Participant } from 'livekit-client';
 import { MicOff, MonitorOff, MonitorUp, Pin, PinOff, Star, StarOff, UserMinus, VideoOff } from 'lucide-react';
+import { useCallback, useRef } from 'react';
 import { useToast } from '../components/toast';
 import type { MenuItem } from '../components/ui';
 import { api } from '../lib/api';
@@ -8,17 +9,23 @@ import type { Dict } from '../lib/i18n';
 import { useT } from '../lib/settings';
 import { canShareScreen, isHost, nameOf } from './participants';
 
+/** Stable across renders, so hooks that depend on it don't re-run their effects. */
 export function useModerate(spaceId: number) {
   const toast = useToast();
   const t = useT();
-  return async (action: ModerateAction) => {
-    try {
-      await api.moderate(spaceId, action);
-    } catch (e) {
-      const code = (e as { code?: string }).code ?? 'generic';
-      toast({ text: t.errors[code] ?? t.errors.generic, tone: 'warn' });
-    }
-  };
+  const tRef = useRef(t);
+  tRef.current = t;
+  return useCallback(
+    async (action: ModerateAction) => {
+      try {
+        await api.moderate(spaceId, action);
+      } catch (e) {
+        const code = (e as { code?: string }).code ?? 'generic';
+        toast({ text: tRef.current.errors[code] ?? tRef.current.errors.generic, tone: 'warn' });
+      }
+    },
+    [spaceId, toast],
+  );
 }
 
 interface Ctx {

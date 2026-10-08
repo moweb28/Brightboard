@@ -59,7 +59,7 @@ export function useRoomVersion(room: Room) {
 }
 
 export function roomMetaOf(room: Room): RoomMeta {
-  const defaults: RoomMeta = { title: '', kind: 'hangout', waitingRoom: false, muteOnJoin: false, guestsCanShare: false, chatEnabled: true, locked: false, spotlight: null };
+  const defaults: RoomMeta = { title: '', recording: false, kind: 'hangout', waitingRoom: false, muteOnJoin: false, guestsCanShare: false, chatEnabled: true, locked: false, spotlight: null };
   try {
     return { ...defaults, ...JSON.parse(room.metadata || '{}') };
   } catch {

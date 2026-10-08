@@ -1,6 +1,7 @@
 export * from './roomCode';
 export * from './chat';
 export * from './remote';
+export * from './files';
 
 /** In a call: whoever created the space hosts; everyone else is a guest. */
 export type Role = 'host' | 'guest';
@@ -93,6 +94,8 @@ export interface HostStats {
 /** Shared state the host controls, stored as LiveKit room metadata. */
 export interface RoomMeta extends SpaceSettings {
   title: string;
+  /** The admin is recording this call (shown to everyone). */
+  recording: boolean;
   kind: SpaceKind;
   spotlight: string | null;
 }
@@ -128,5 +131,5 @@ export type ModerateAction =
   | { action: 'mute' | 'stopVideo' | 'remove' | 'admit'; identity: string }
   | { action: 'muteAll' | 'admitAll' }
   | { action: 'allowShare'; identity: string; value: boolean }
-  | { action: 'lock' | 'chat'; value: boolean }
+  | { action: 'lock' | 'chat' | 'recording'; value: boolean }
   | { action: 'spotlight'; identity: string | null };
