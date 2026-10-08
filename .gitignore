@@ -4,3 +4,5 @@ out/
 .bin/
 *.db
 .env
+
+apps/desktop/src/renderer/public/excalidraw-assets/

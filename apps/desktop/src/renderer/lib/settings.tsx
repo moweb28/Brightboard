@@ -27,6 +27,9 @@ export interface Settings {
   recordPrompt: 'ask' | 'always' | 'never';
   /** Spaces where the admin chose "don't ask again". */
   noRecordAsk: number[];
+  /** Whiteboard smart pen. */
+  boardShapes: boolean;
+  boardHandwriting: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -45,6 +48,8 @@ const DEFAULTS: Settings = {
   soundHand: true,
   recordPrompt: 'ask',
   noRecordAsk: [],
+  boardShapes: true,
+  boardHandwriting: false,
 };
 
 const KEY = 'settings';

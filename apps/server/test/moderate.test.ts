@@ -97,3 +97,16 @@ describe('recording flag after a crash', () => {
     expect(JSON.parse(app.rc.callsTo('ensureRoom').at(-1)![1] as string).recording).toBe(false);
   });
 });
+
+describe('whiteboard state', () => {
+  it('the admin opens and locks the board; a new call starts with it closed', async () => {
+    const { app, c, host, mod } = await setup();
+    await mod({ action: 'board', value: true });
+    await mod({ action: 'boardLock', value: true });
+    const meta = JSON.parse(app.rc.callsTo('setRoomMetadata').at(-1)![1] as string);
+    expect(meta).toMatchObject({ boardOpen: true, boardLocked: true });
+    await app.inject({ method: 'POST', url: `/spaces/${c.id}/end`, headers: bearer(host) });
+    await app.inject({ method: 'POST', url: `/spaces/${c.id}/start`, headers: bearer(host) });
+    expect(JSON.parse(app.rc.callsTo('ensureRoom').at(-1)![1] as string)).toMatchObject({ boardOpen: false, boardLocked: false });
+  });
+});

@@ -70,7 +70,7 @@ export function registerSpaces(app: FastifyInstance, db: Db, auth: Auth, store: 
   const start = async (host: UserRow, s: SpaceRow) => {
     if (!store.openCall(s.id)) {
       // A fresh call starts unlocked with no spotlight.
-      db.prepare('UPDATE spaces SET locked = 0, spotlight = NULL WHERE id = ?').run(s.id);
+      db.prepare('UPDATE spaces SET locked = 0, spotlight = NULL, board_open = 0, board_locked = 0 WHERE id = ?').run(s.id);
       db.prepare('INSERT INTO calls (space_id, started_at) VALUES (?, ?)').run(s.id, Date.now());
     }
     // Only the admin's app records, and it is (re)joining right now, so nothing is being recorded yet.

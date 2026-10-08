@@ -20,6 +20,8 @@ interface Props {
   setPinned: (id: string | null) => void;
   moderate: (a: ModerateAction) => void;
   remote: Remote;
+  /** When set, the whiteboard takes the main stage. */
+  board?: React.ReactNode;
 }
 
 const keyOf = (r: TrackReferenceOrPlaceholder) => `${r.participant.identity}:${r.source}`;
@@ -32,7 +34,7 @@ function gridColumns(n: number) {
   return 5;
 }
 
-export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate, remote }: Props) {
+export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate, remote, board }: Props) {
   const refs = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -52,6 +54,15 @@ export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate,
   const tile = (r: TrackReferenceOrPlaceholder, size: 'grid' | 'focus' | 'strip') => (
     <Tile key={keyOf(r)} trackRef={r} size={size} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} remote={remote} />
   );
+
+  if (board) {
+    return (
+      <div className="stage stage-focus">
+        <div className="stage-main">{board}</div>
+        <div className="filmstrip">{[...shares, ...cameras].map((r) => tile(r, 'strip'))}</div>
+      </div>
+    );
+  }
 
   if (focus) {
     const others = [...shares.filter((s) => s !== focus), ...cameras.filter((c) => c !== focus)];

@@ -61,6 +61,8 @@ export function openDb(path: string): Db {
   `);
   // Columns added after the first release of this schema.
   addColumnIfMissing(db, 'spaces', 'recording', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(db, 'spaces', 'board_open', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(db, 'spaces', 'board_locked', 'INTEGER NOT NULL DEFAULT 0');
   return db;
 }
 

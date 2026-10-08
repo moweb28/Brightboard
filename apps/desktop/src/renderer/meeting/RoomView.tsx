@@ -11,6 +11,7 @@ import {
   MicOff,
   MonitorUp,
   MonitorX,
+  Presentation,
   CircleDot,
   MousePointer2,
   PhoneOff,
@@ -46,6 +47,8 @@ import { Stage, type Layout } from './Stage';
 import { useChat } from './useChat';
 import { useRecording } from './useRecording';
 import { useRemote } from './useRemote';
+import { Board } from './board/Board';
+import { useBoardSync } from './board/useBoardSync';
 
 interface Props {
   join: JoinInfo;
@@ -84,6 +87,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
   });
   const reactions = useReactions(room);
   const remote = useRemote(room);
+  const boardSync = useBoardSync(room, amHost);
   const rec = useRecording(room, join, connection, moderate);
   const [dontAskRecord, setDontAskRecord] = useState(false);
 
@@ -261,7 +265,21 @@ export function RoomView({ join, choices, invitePassword }: Props) {
 
       <div className="room-body">
         <div className="room-stage">
-          <Stage room={room} meta={meta} layout={layout} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} remote={remote} />
+          <Stage room={room} meta={meta} layout={layout} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate}
+            remote={remote}
+            board={
+              meta.boardOpen ? (
+                <Board
+                  sync={boardSync}
+                  title={join.spaceTitle}
+                  amHost={amHost}
+                  locked={meta.boardLocked}
+                  onClose={() => moderate({ action: 'board', value: false })}
+                  onToggleLock={() => moderate({ action: 'boardLock', value: !meta.boardLocked })}
+                />
+              ) : undefined
+            }
+          />
           <ReactionLayer items={reactions.items} />
         </div>
         {panel === 'chat' && <ChatPanel room={room} chat={chat} canSend={chatAllowed} onClose={() => setPanel(null)} />}
@@ -281,6 +299,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
             trigger={(open, isOpen) => <Ctrl icon={SmilePlus} label={t.meeting.react} active={isOpen} onClick={open} />}
             items={QUICK_REACTIONS.map((e) => ({ label: e, onClick: () => reactions.send(e) }))}
           />
+          {amHost && <Ctrl icon={Presentation} label={meta.boardOpen ? t.board.close : t.board.open} active={meta.boardOpen} onClick={() => moderate({ action: 'board', value: !meta.boardOpen })} />}
           <Ctrl icon={MessageSquare} label={t.meeting.chat} active={panel === 'chat'} badge={chat.unread} onClick={() => setPanel(panel === 'chat' ? null : 'chat')} />
           <Ctrl icon={Users} label={t.meeting.people} active={panel === 'people'} badge={guestsWaiting} count={people} onClick={() => setPanel(panel === 'people' ? null : 'people')} />
           <span className="dock-sep" aria-hidden />
