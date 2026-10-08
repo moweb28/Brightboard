@@ -6,5 +6,6 @@ export default defineConfig({
   main: { plugins: [externalizeDepsPlugin({ exclude: ['@classroom/protocol'] })] },
   // Sandboxed preloads must be CommonJS.
   preload: { build: { rollupOptions: { output: { format: 'cjs', entryFileNames: '[name].cjs' } } } },
-  renderer: { plugins: [react()] },
+  // Workers (speech-to-text) are ES modules.
+  renderer: { plugins: [react()], worker: { format: 'es' } },
 });

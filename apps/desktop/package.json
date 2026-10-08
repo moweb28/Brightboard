@@ -16,6 +16,7 @@
     "@excalidraw/excalidraw": "^0.18.1",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/rubik": "^5.3.0",
+    "@huggingface/transformers": "^4.3.1",
     "@livekit/components-react": "^2.9.0",
     "@livekit/components-styles": "^1.1.0",
     "@livekit/track-processors": "^0.8.1",

@@ -17,6 +17,22 @@ npm run dev:desktop   # opens the app
 2. Click **Start now** for an instant space, or **New space** to pick Hangout / Meeting / Class / Event.
 3. Click **Invite** and share the link. People can join with an account or as a guest; a password is optional.
 
+## Whiteboard
+
+The admin opens it from the dock; it takes the stage for everyone. Text, pictures (paste/drag/upload), shapes,
+**mind maps** (Mind map button, then Tab = branch, Enter = sibling, Delete = remove), export to PNG, and a
+**Smart pen** for mouse users: rough circles/boxes/lines/arrows/triangles snap to clean shapes (Ctrl+Z restores the
+stroke), other strokes are smoothed, and optional handwriting → text (local OCR, best with neat print).
+The admin can lock it so only they draw. Late joiners get the full board.
+
+## Recording and transcript (admin)
+
+- **Recording** saves what the admin sees plus everyone's voices to . When a session starts the
+  app asks "Record this session?" (and reminds once after 5 minutes). Everyone sees a REC indicator.
+- **Transcript** turns speech into text on the admin's computer (Whisper, Arabic + English; the model downloads once,
+  ~80 MB or ~250 MB for high accuracy). Choose *Only me* or *Everyone* (everyone then sees a notice). Saved as a
+   in  when stopped or when the admin leaves.
+
 ## Remote control (Parsec-style)
 
 When a guest shares their **whole screen**, the host sees **Request control** on it. If the guest clicks **Allow**,

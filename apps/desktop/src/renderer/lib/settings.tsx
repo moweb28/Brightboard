@@ -30,6 +30,9 @@ export interface Settings {
   /** Whiteboard smart pen. */
   boardShapes: boolean;
   boardHandwriting: boolean;
+  /** Transcript: who is transcribed and which speech model. */
+  transcriptMode: 'me' | 'everyone';
+  transcriptModel: 'standard' | 'accurate';
 }
 
 const DEFAULTS: Settings = {
@@ -50,6 +53,8 @@ const DEFAULTS: Settings = {
   noRecordAsk: [],
   boardShapes: true,
   boardHandwriting: false,
+  transcriptMode: 'me',
+  transcriptModel: 'standard',
 };
 
 const KEY = 'settings';

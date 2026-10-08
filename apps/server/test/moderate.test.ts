@@ -110,3 +110,13 @@ describe('whiteboard state', () => {
     expect(JSON.parse(app.rc.callsTo('ensureRoom').at(-1)![1] as string)).toMatchObject({ boardOpen: false, boardLocked: false });
   });
 });
+
+describe('transcribing flag', () => {
+  it('the admin can announce that everyone is being transcribed; rejoining clears it', async () => {
+    const { app, c, host, mod } = await setup();
+    await mod({ action: 'transcribing', value: true });
+    expect(JSON.parse(app.rc.callsTo('setRoomMetadata').at(-1)![1] as string).transcribing).toBe(true);
+    await app.inject({ method: 'POST', url: `/spaces/${c.id}/start`, headers: bearer(host) });
+    expect(JSON.parse(app.rc.callsTo('ensureRoom').at(-1)![1] as string).transcribing).toBe(false);
+  });
+});

@@ -182,6 +182,31 @@ function SessionsSection() {
           ]}
         />
       </div>
+      <div className="field">
+        <span className="field-label">{t.transcript.who}</span>
+        <Segmented
+          label={t.transcript.who}
+          value={settings.transcriptMode}
+          onChange={(v) => set('transcriptMode', v)}
+          options={[
+            { value: 'me', label: t.transcript.me },
+            { value: 'everyone', label: t.transcript.everyone },
+          ]}
+        />
+      </div>
+      <div className="field">
+        <span className="field-label">{t.transcript.quality}</span>
+        <Segmented
+          label={t.transcript.quality}
+          value={settings.transcriptModel}
+          onChange={(v) => set('transcriptModel', v)}
+          options={[
+            { value: 'standard', label: t.transcript.standard },
+            { value: 'accurate', label: t.transcript.accurate },
+          ]}
+        />
+      </div>
+      <p className="muted small">{t.transcript.privacy}</p>
     </div>
   );
 }

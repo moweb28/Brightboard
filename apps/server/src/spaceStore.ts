@@ -22,6 +22,7 @@ export interface SpaceRow {
   locked: number;
   spotlight: string | null;
   recording: number;
+  transcribing: number;
   board_open: number;
   board_locked: number;
   archived: number;
@@ -82,6 +83,7 @@ export function spaceStore(db: Db, cfg: Config) {
     locked: !!s.locked,
     spotlight: s.spotlight,
     recording: !!s.recording,
+    transcribing: !!s.transcribing,
     boardOpen: !!s.board_open,
     boardLocked: !!s.board_locked,
   });

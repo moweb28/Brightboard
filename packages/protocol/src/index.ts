@@ -96,6 +96,8 @@ export interface RoomMeta extends SpaceSettings {
   title: string;
   /** The admin is recording this call (shown to everyone). */
   recording: boolean;
+  /** The admin is transcribing everyone (shown to everyone). */
+  transcribing: boolean;
   /** The shared whiteboard is on stage for everyone. */
   boardOpen: boolean;
   /** Only the admin may draw. */
@@ -135,9 +137,10 @@ export type ModerateAction =
   | { action: 'mute' | 'stopVideo' | 'remove' | 'admit'; identity: string }
   | { action: 'muteAll' | 'admitAll' }
   | { action: 'allowShare'; identity: string; value: boolean }
-  | { action: 'lock' | 'chat' | 'recording' | 'board' | 'boardLock'; value: boolean }
+  | { action: 'lock' | 'chat' | 'recording' | 'transcribing' | 'board' | 'boardLock'; value: boolean }
   | { action: 'spotlight'; identity: string | null };
 
 export * from './board/sync';
 export * from './board/mindmap';
 export * from './board/shapes';
+export * from './transcript';

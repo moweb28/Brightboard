@@ -11,6 +11,7 @@ import {
   MicOff,
   MonitorUp,
   MonitorX,
+  FileText,
   Presentation,
   CircleDot,
   MousePointer2,
@@ -46,6 +47,8 @@ import { ScreenPicker } from './ScreenPicker';
 import { Stage, type Layout } from './Stage';
 import { useChat } from './useChat';
 import { useRecording } from './useRecording';
+import { useTranscript } from './useTranscript';
+import { TranscriptPanel } from './TranscriptPanel';
 import { useRemote } from './useRemote';
 import { Board } from './board/Board';
 import { useBoardSync } from './board/useBoardSync';
@@ -69,7 +72,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
   const waiting = isWaiting(local);
   const moderate = useModerate(join.spaceId);
 
-  const [panel, setPanel] = useState<'chat' | 'people' | null>(null);
+  const [panel, setPanel] = useState<'chat' | 'people' | 'transcript' | null>(null);
   const [layout, setLayout] = useState<Layout>('grid');
   const [pinned, setPinned] = useState<string | null>(null);
   const [picker, setPicker] = useState(false);
@@ -89,6 +92,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
   const remote = useRemote(room);
   const boardSync = useBoardSync(room, amHost);
   const rec = useRecording(room, join, connection, moderate);
+  const tx = useTranscript(room, join, moderate);
   const [dontAskRecord, setDontAskRecord] = useState(false);
 
   // Clock in the header.
@@ -181,11 +185,11 @@ export function RoomView({ join, choices, invitePassword }: Props) {
   };
 
   const leave = async () => {
-    await rec.stop();
+    await Promise.all([rec.stop(), tx.stop()]);
     room.disconnect();
   };
   const endForAll = async () => {
-    await rec.stop();
+    await Promise.all([rec.stop(), tx.stop()]);
     await api.end(join.spaceId).catch(() => undefined);
     room.disconnect();
   };
@@ -227,6 +231,11 @@ export function RoomView({ join, choices, invitePassword }: Props) {
         {meta.recording && (
           <span className="chip chip-rec">
             <span className="rec-dot" aria-hidden /> {t.recording.chip}
+          </span>
+        )}
+        {meta.transcribing && (
+          <span className="chip">
+            <FileText size={14} /> {t.transcript.chip}
           </span>
         )}
         {meta.locked && (
@@ -283,6 +292,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
           <ReactionLayer items={reactions.items} />
         </div>
         {panel === 'chat' && <ChatPanel room={room} chat={chat} canSend={chatAllowed} onClose={() => setPanel(null)} />}
+        {panel === 'transcript' && <TranscriptPanel tx={tx} onClose={() => setPanel(null)} />}
         {panel === 'people' && <PeoplePanel room={room} spaceId={join.spaceId} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} onClose={() => setPanel(null)} />}
       </div>
 
@@ -304,6 +314,9 @@ export function RoomView({ join, choices, invitePassword }: Props) {
           <Ctrl icon={Users} label={t.meeting.people} active={panel === 'people'} badge={guestsWaiting} count={people} onClick={() => setPanel(panel === 'people' ? null : 'people')} />
           <span className="dock-sep" aria-hidden />
           <Ctrl icon={layout === 'grid' ? SquareUserRound : LayoutGrid} label={layout === 'grid' ? t.meeting.speaker : t.meeting.grid} onClick={() => setLayout(layout === 'grid' ? 'speaker' : 'grid')} />
+          {tx.available && (
+            <Ctrl icon={FileText} label={t.transcript.title} active={panel === 'transcript' || tx.running} onClick={() => setPanel(panel === 'transcript' ? null : 'transcript')} />
+          )}
           {rec.available && (
             <Ctrl icon={CircleDot} label={rec.recording ? t.recording.stop : t.recording.record} active={rec.recording} rec onClick={() => (rec.recording ? rec.stop() : rec.start())} />
           )}
