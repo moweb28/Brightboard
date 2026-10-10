@@ -4,7 +4,7 @@ import { initials } from '../lib/format';
 import { useT } from '../lib/settings';
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'link';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'link';
   size?: 'sm' | 'md' | 'lg';
   icon?: LucideIcon;
   loading?: boolean;
@@ -96,10 +96,19 @@ export function ColorPicker({ colors, value, onChange, label }: { colors: readon
   );
 }
 
-export function Avatar({ name, color, size = 40, ring }: { name: string; color: string; size?: number; ring?: boolean }) {
+export function Avatar({ name, color, picture, size = 40, ring }: { name: string; color: string; picture?: string | null; size?: number; ring?: boolean }) {
   return (
     <span className={`avatar ${ring ? 'avatar-ring' : ''}`} style={{ width: size, height: size, background: color, fontSize: Math.round(size * 0.38) }} aria-hidden>
-      {initials(name)}
+      {picture ? <img src={picture} alt="" /> : initials(name)}
+    </span>
+  );
+}
+
+/** A space's picture, or its initials on its color. Rounded square, like a server icon. */
+export function SpaceIcon({ title, color, picture, size = 48 }: { title: string; color: string; picture?: string | null; size?: number }) {
+  return (
+    <span className="space-icon" style={{ width: size, height: size, background: color, fontSize: Math.round(size * 0.36), borderRadius: Math.round(size * 0.3) }} aria-hidden>
+      {picture ? <img src={picture} alt="" /> : initials(title)}
     </span>
   );
 }

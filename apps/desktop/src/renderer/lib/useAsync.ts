@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError } from './api';
+import { CallError } from './call';
 
 const codeOf = (e: unknown) => {
-  if (e instanceof ApiError) return e.code;
+  if (e instanceof CallError) return e.code;
   console.error(e);
   return 'generic';
 };

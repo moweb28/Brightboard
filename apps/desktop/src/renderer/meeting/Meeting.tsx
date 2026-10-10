@@ -4,7 +4,6 @@ import { DisconnectReason, VideoPresets, type RoomOptions } from 'livekit-client
 import { DoorOpen, Home as HomeIcon, UserMinus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '../components/ui';
-import { useAuth } from '../lib/auth';
 import { useNavigate } from '../lib/nav';
 import { useSettings, useT } from '../lib/settings';
 import { PreJoin, type JoinChoices } from './PreJoin';
@@ -12,12 +11,11 @@ import { RoomView } from './RoomView';
 
 type Phase = { name: 'prejoin' } | { name: 'live'; choices: JoinChoices } | { name: 'ended'; reason?: DisconnectReason };
 
-export function Meeting({ join, invitePassword }: { join: JoinInfo; invitePassword?: string }) {
+export function Meeting({ join, password }: { join: JoinInfo; password?: string }) {
   const { settings } = useSettings();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>({ name: 'prejoin' });
-  const goHome = () => navigate(user ? { name: 'home' } : { name: 'welcome' });
+  const goHome = () => navigate({ name: 'home' });
 
   const options = useMemo<RoomOptions>(
     () => ({
@@ -46,7 +44,7 @@ export function Meeting({ join, invitePassword }: { join: JoinInfo; invitePasswo
       onDisconnected={(reason) => setPhase({ name: 'ended', reason })}
       className="meeting"
     >
-      <RoomView join={join} choices={phase.choices} invitePassword={invitePassword} />
+      <RoomView join={join} choices={phase.choices} password={password} />
       <RoomAudioRenderer />
     </LiveKitRoom>
   );

@@ -1,13 +1,15 @@
-import { sessionFileName } from '@classroom/protocol';
+import { sessionFileName, withWebmDuration } from '@classroom/protocol';
 import { app, ipcMain, shell, type BrowserWindow } from 'electron';
-import { createWriteStream, mkdirSync, writeFileSync, type WriteStream } from 'node:fs';
+import { createReadStream, createWriteStream, mkdirSync, writeFileSync, type WriteStream } from 'node:fs';
+import { open, rename, unlink } from 'node:fs/promises';
+import { pipeline } from 'node:stream/promises';
 import { join } from 'node:path';
 
 /**
  * Recordings go to Videos/Brightboard, transcripts to Documents/Brightboard.
  * The renderer streams recording chunks here so a crash loses at most a few seconds.
  */
-const recordings = new Map<number, { stream: WriteStream; path: string }>();
+const recordings = new Map<number, { stream: WriteStream; path: string; startedAt: number }>();
 /** Only files we wrote may be revealed in Explorer/Finder. */
 const ownFiles = new Set<string>();
 let nextId = 1;
@@ -18,13 +20,37 @@ function folder(kind: 'videos' | 'documents') {
   return dir;
 }
 
+/** Writes the recording's length into the file so players show a normal timeline instead of "live". */
+async function addDuration(path: string, durationMs: number) {
+  const file = await open(path, 'r');
+  let patch: ReturnType<typeof withWebmDuration>;
+  try {
+    const head = new Uint8Array(64 * 1024);
+    const { bytesRead } = await file.read(head, 0, head.length, 0);
+    patch = withWebmDuration(head.subarray(0, bytesRead), durationMs);
+  } finally {
+    await file.close();
+  }
+  if (!patch) return;
+  const tmp = path + '.part';
+  try {
+    const out = createWriteStream(tmp);
+    out.write(patch.bytes);
+    await pipeline(createReadStream(path, { start: patch.replaced }), out);
+    await rename(tmp, path);
+  } catch (e) {
+    await unlink(tmp).catch(() => undefined);
+    throw e;
+  }
+}
+
 export function registerFileHandlers(mainWindow: () => BrowserWindow | null) {
   ipcMain.handle('rec:windowSource', () => mainWindow()?.getMediaSourceId() ?? null);
 
   ipcMain.handle('rec:start', (_e, title: unknown) => {
     const path = join(folder('videos'), sessionFileName(String(title ?? ''), new Date(), 'webm'));
     const id = nextId++;
-    recordings.set(id, { stream: createWriteStream(path), path });
+    recordings.set(id, { stream: createWriteStream(path), path, startedAt: Date.now() });
     ownFiles.add(path);
     return { id, path };
   });
@@ -38,6 +64,7 @@ export function registerFileHandlers(mainWindow: () => BrowserWindow | null) {
     if (!rec) return null;
     recordings.delete(id);
     await new Promise<void>((resolve) => rec.stream.end(resolve));
+    await addDuration(rec.path, Date.now() - rec.startedAt).catch((e) => console.error('could not add recording length', e));
     return rec.path;
   });
 

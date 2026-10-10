@@ -53,6 +53,7 @@ function useMicMeter(track: LocalAudioTrack | null, el: React.RefObject<HTMLElem
 interface Props {
   name: string;
   color: string;
+  picture?: string | null;
   /** Controlled on/off state (pre-join). When omitted, both are on and no toggles are shown. */
   camOn?: boolean;
   micOn?: boolean;
@@ -61,7 +62,7 @@ interface Props {
 }
 
 /** Camera and mic stay off until the user turns them on — no surprise camera. */
-export function DeviceCheck({ name, color, camOn: camProp, micOn: micProp, onToggleCam, onToggleMic }: Props) {
+export function DeviceCheck({ name, color, picture, camOn: camProp, micOn: micProp, onToggleCam, onToggleMic }: Props) {
   const [selfCam, setSelfCam] = useState(false);
   const [selfMic, setSelfMic] = useState(false);
   const camOn = camProp ?? selfCam;
@@ -142,13 +143,8 @@ export function DeviceCheck({ name, color, camOn: camProp, micOn: micProp, onTog
           <video ref={videoRef} className={settings.mirror ? 'mirror' : ''} muted playsInline autoPlay />
         ) : (
           <div className="preview-off">
-            <Avatar name={name} color={color} size={96} />
+            <Avatar name={name} color={color} picture={picture} size={96} />
             {camOn && camError && <span className="preview-error">{t.meeting.cameraBlocked}</span>}
-            {!camOn && (
-              <button type="button" className="preview-start" onClick={toggleCam}>
-                <Video size={18} /> {t.settings.turnOnCamera}
-              </button>
-            )}
           </div>
         )}
         <div className="preview-meter" ref={meterRef} aria-label={t.settings.micLevel}>
@@ -157,17 +153,16 @@ export function DeviceCheck({ name, color, camOn: camProp, micOn: micProp, onTog
             <span className="meter-fill" />
           </span>
         </div>
-        {(
-          
-          <div className="preview-toggles">
-            <button className={`round-btn ${micOn ? '' : 'is-off'}`} onClick={toggleMic} aria-label={micOn ? t.meeting.micOn : t.meeting.micOff} title={micOn ? t.meeting.micOn : t.meeting.micOff}>
-              {micOn ? <Mic size={22} /> : <MicOff size={22} />}
-            </button>
-            <button className={`round-btn ${camOn ? '' : 'is-off'}`} onClick={toggleCam} aria-label={camOn ? t.meeting.cameraOn : t.meeting.cameraOff} title={camOn ? t.meeting.cameraOn : t.meeting.cameraOff}>
-              {camOn ? <Video size={22} /> : <VideoOff size={22} />}
-            </button>
-          </div>
-        )}
+      </div>
+      <div className="preview-bar">
+        <button type="button" className={`preview-toggle ${micOn ? '' : 'is-off'}`} onClick={toggleMic} aria-pressed={!micOn}>
+          {micOn ? <Mic size={18} /> : <MicOff size={18} />}
+          {micOn ? t.meeting.micOn : t.meeting.micOff}
+        </button>
+        <button type="button" className={`preview-toggle ${camOn ? '' : 'is-off'}`} onClick={toggleCam} aria-pressed={!camOn}>
+          {camOn ? <Video size={18} /> : <VideoOff size={18} />}
+          {camOn ? t.meeting.cameraOn : t.meeting.cameraOff}
+        </button>
       </div>
       <div className="device-selects">
         <Select label={t.settings.camera} value={settings.cameraId} onChange={(v) => set('cameraId', v)} options={options(devices.videoinput)} />

@@ -2,6 +2,9 @@ export * from './roomCode';
 export * from './chat';
 export * from './remote';
 export * from './files';
+export * from './webm';
+export * from './schedule';
+export * from './local';
 
 /** In a call: whoever created the space hosts; everyone else is a guest. */
 export type Role = 'host' | 'guest';
@@ -119,16 +122,19 @@ export interface ParticipantAttrs {
   away?: '1' | '';
 }
 
-/** Response from the server's start/join endpoints. */
+/** What the app needs to enter a call. */
 export interface JoinInfo {
   url: string;
   token: string;
   identity: string;
   role: Role;
+  /** The room code. */
   roomName: string;
-  spaceId: number;
+  /** Local space id on the admin's computer; the room code for guests. */
+  spaceId: string;
   spaceTitle: string;
-  spaceEmoji: string;
+  spaceColor: string;
+  spacePicture: string | null;
   kind: SpaceKind;
   waiting: boolean;
 }

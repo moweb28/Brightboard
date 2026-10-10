@@ -1,151 +1,151 @@
-import { extractRoomCode, type SpaceDto } from '@classroom/protocol';
-import { ArrowRight, CalendarClock, Clock, Lock, Play, Plus, Radio, Send, Sparkles, Users, Video, Zap } from 'lucide-react';
+import { extractRoomCode, generateRoomCode, KIND_PRESETS, SPACE_COLORS, upcomingMeetings, type Space } from '@classroom/protocol';
+import { ArrowRight, CalendarDays, LogIn, Play, Plus, Send, Sparkles, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { InviteBox } from '../components/InviteBox';
-import { AppShell } from '../components/layout';
+import { AppShell, useRailSpaces } from '../components/layout';
 import { SpaceFormModal } from '../components/SpaceFormModal';
 import { useToast } from '../components/toast';
-import { Badge, Button, EmptyState, Modal, Spinner } from '../components/ui';
-import { api, ApiError } from '../lib/api';
-import { useAuth } from '../lib/auth';
-import { dayPart, formatRelative } from '../lib/format';
+import { Badge, Button, EmptyState, Modal, SpaceIcon } from '../components/ui';
+import { dayPart, formatDay, formatRelative, formatSchedule, formatTime } from '../lib/format';
 import { useNavigate } from '../lib/nav';
 import { useSettings, useT } from '../lib/settings';
-import { useLoad } from '../lib/useAsync';
+import { useProfile, useStore } from '../lib/store';
+import { useOpenCall } from '../lib/useOpenCall';
 
-/** Refetch every 15 s so live badges stay current. */
-function useSpaces() {
-  const res = useLoad(() => api.spaces(), []);
+/** The current time, updated on each new second. */
+function useNow() {
+  const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const id = setInterval(res.reload, 15_000);
-    return () => clearInterval(id);
-  }, [res.reload]);
-  return res;
+    let id: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      setNow(new Date());
+      id = setTimeout(tick, 1000 - (Date.now() % 1000));
+    };
+    id = setTimeout(tick, 1000 - (Date.now() % 1000));
+    return () => clearTimeout(id);
+  }, []);
+  return now;
 }
 
 export function Home({ newSpace }: { newSpace?: boolean }) {
   const t = useT();
   const toast = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { data: spaces, reload, error } = useSpaces();
-  const hosted = spaces?.filter((s) => s.isHost) ?? [];
-  const joined = spaces?.filter((s) => !s.isHost) ?? [];
-  const { data: stats } = useLoad(() => (hosted.length ? api.stats() : Promise.resolve(undefined)), [hosted.length]);
+  const openCall = useOpenCall();
+  const profile = useProfile();
+  const { settings } = useSettings();
+  const { data, live } = useStore();
+  const now = useNow();
   const [creating, setCreating] = useState(!!newSpace);
-  const [inviting, setInviting] = useState<SpaceDto | null>(null);
+  const [inviting, setInviting] = useState<Space | null>(null);
   const [paste, setPaste] = useState('');
   const [starting, setStarting] = useState(false);
-  const live = spaces?.filter((s) => s.live) ?? [];
+  const spaces = data?.spaces ?? [];
+  const joined = data?.joined ?? [];
+  const railIds = new Map(useRailSpaces().map((s) => [s.code, s.id]));
 
-  const fail = (e: unknown) => toast({ text: t.errors[e instanceof ApiError ? e.code : 'generic'] ?? t.errors.generic, tone: 'warn' });
+  useEffect(() => setCreating(!!newSpace), [newSpace]);
 
+  // An instant call is a throwaway space: nothing is saved unless you create a real one.
   const startNow = async () => {
     setStarting(true);
-    try {
-      navigate({ name: 'meeting', join: await api.instant() });
-    } catch (e) {
-      fail(e);
-      setStarting(false);
-    }
+    const quick: Space = {
+      ...KIND_PRESETS.hangout,
+      id: `quick-${Date.now()}`,
+      code: generateRoomCode(),
+      title: t.home.quickCall(profile.name),
+      color: SPACE_COLORS[0],
+      picture: null,
+      kind: 'hangout',
+      schedule: null,
+      password: '',
+      adminKey: globalThis.crypto.randomUUID(),
+      createdAt: Date.now(),
+    };
+    if (!(await openCall({ admin: quick }))) setStarting(false);
   };
 
-  /** Host: start (or rejoin) the call. Member: join it, asking for the password only if needed. */
-  const open = async (s: SpaceDto) => {
-    try {
-      if (s.isHost) navigate({ name: 'meeting', join: await api.start(s.id), invitePassword: s.password });
-      else navigate({ name: 'meeting', join: await api.join(s.code, user!.displayName, '') });
-    } catch (e) {
-      if (e instanceof ApiError && e.code === 'wrongPassword') navigate({ name: 'join', code: s.code });
-      else fail(e);
-    }
-  };
-
-  const joinPasted = async (e: React.FormEvent) => {
+  const joinPasted = (e: React.FormEvent) => {
     e.preventDefault();
     const code = extractRoomCode(paste);
     if (!code) return toast({ text: t.errors.badCode, tone: 'warn' });
-    try {
-      navigate({ name: 'meeting', join: await api.join(code, user!.displayName, '') });
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'wrongPassword') navigate({ name: 'join', code });
-      else fail(err);
-    }
+    void openCall({ code });
   };
 
-  const statCards = stats && [
-    { icon: Sparkles, label: t.home.statSpaces, value: stats.spaces },
-    { icon: Users, label: t.home.statPeople, value: stats.people },
-    { icon: CalendarClock, label: t.home.statCalls, value: stats.callsThisWeek },
-    { icon: Clock, label: t.home.statMinutes, value: stats.minutesTogether },
-  ];
+  const upcoming = upcomingMeetings(
+    [...spaces.map((s) => ({ ...s, admin: true })), ...joined.map((j) => ({ ...j, admin: false }))],
+    now,
+    7,
+  ).slice(0, 6);
+
+  const openUpcoming = (item: (typeof upcoming)[number]['item']) => {
+    if (item.admin) void openCall({ admin: item as unknown as Space });
+    else void openCall({ code: item.code });
+  };
+
+  const when = (m: (typeof upcoming)[number]) => {
+    if (m.now) return t.home.happeningNow;
+    const mins = (m.start.getTime() - now.getTime()) / 60_000;
+    if (mins <= 60) return formatRelative(m.start.getTime(), settings.lang);
+    return `${formatDay(m.start, settings.lang, now)}, ${formatTime(m.start.getTime(), settings.lang)}`;
+  };
 
   return (
     <AppShell active="home">
       <div className="page">
-        <header className="home-hero">
-          <h1 className="display">{t.home.greeting(dayPart(), user?.displayName ?? '')}</h1>
-          <p className="muted lead">{t.home.subtitle}</p>
-          <div className="home-actions">
-            <button className="action-tile action-primary" onClick={startNow} disabled={starting}>
-              <span className="action-icon">
-                <Zap size={24} />
-              </span>
-              <span className="action-text">
-                <strong>{t.home.startNow}</strong>
-                <span>{t.home.startNowHint}</span>
-              </span>
-            </button>
-            <button className="action-tile" onClick={() => setCreating(true)}>
-              <span className="action-icon">
-                <Plus size={24} />
-              </span>
-              <span className="action-text">
-                <strong>{t.home.newSpace}</strong>
-                <span>{t.kinds.hangout.name} · {t.kinds.meeting.name} · {t.kinds.class.name} · {t.kinds.event.name}</span>
-              </span>
-            </button>
-            <form className="paste-join" onSubmit={joinPasted}>
-              <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={t.home.pastePlaceholder} dir="auto" aria-label={t.home.pastePlaceholder} />
-              <Button icon={ArrowRight} disabled={!paste.trim()} aria-label={t.home.joinNow}>
-                {t.home.joinNow}
-              </Button>
-            </form>
+        <header className="home-head">
+          <div className="clock" aria-live="off">
+            <time className="clock-time" dateTime={now.toISOString()}>
+              {now.toLocaleTimeString(settings.lang === 'ar' ? 'ar-EG' : 'en-US', { hour: 'numeric', minute: '2-digit' })}
+            </time>
+            <span className="clock-date">{now.toLocaleDateString(settings.lang === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
           </div>
+          <p className="home-greeting">{t.home.greeting(dayPart(), profile.name)}</p>
         </header>
 
-        {live.length > 0 && (
-          <section className="live-strip">
-            {live.map((s) => (
-              <div className="live-banner" key={s.id}>
-                <Radio size={20} />
-                <span className="live-emoji">{s.emoji}</span>
-                <div>
-                  <strong>{t.home.liveNow}</strong>
-                  <span>{s.title}</span>
-                </div>
-                <Button icon={Video} onClick={() => open(s)}>
-                  {s.isHost ? t.home.rejoin : t.home.joinNow}
-                </Button>
-              </div>
-            ))}
-          </section>
-        )}
+        <div className="home-actions">
+          <Button size="lg" icon={Zap} onClick={startNow} loading={starting} title={t.home.startNowHint}>
+            {t.home.startNow}
+          </Button>
+          <Button size="lg" variant="secondary" icon={Plus} onClick={() => setCreating(true)}>
+            {t.home.newSpace}
+          </Button>
+          <form className="paste-join" onSubmit={joinPasted}>
+            <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={t.home.pastePlaceholder} dir="auto" aria-label={t.home.pastePlaceholder} />
+            <Button size="sm" icon={ArrowRight} disabled={!paste.trim()}>
+              {t.home.joinNow}
+            </Button>
+          </form>
+        </div>
 
-        {statCards && (
-          <div className="stats">
-            {statCards.map(({ icon: Icon, label, value }) => (
-              <div className="stat" key={label}>
-                <Icon size={18} />
-                <strong>{value}</strong>
-                <span className="muted small">{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <section className="stack-tight">
+          <h2 className="section-title icon-line">
+            <CalendarDays size={18} /> {t.home.upcoming}
+          </h2>
+          {upcoming.length === 0 ? (
+            <p className="muted upcoming-empty">{t.home.nothingUpcoming}</p>
+          ) : (
+            <ol className="upcoming">
+              {upcoming.map((m) => (
+                <li key={m.item.code} className={`upcoming-row ${m.now ? 'is-now' : ''}`}>
+                  <button className="upcoming-main" onClick={() => navigate({ name: 'space', id: railIds.get(m.item.code) ?? '' })}>
+                    <SpaceIcon title={m.item.title} color={m.item.color} picture={m.item.picture} size={40} />
+                    <span className="upcoming-text">
+                      <strong>{m.item.title}</strong>
+                      <span className="muted small">{m.item.admin ? t.kinds[m.item.kind].name : t.home.hostedBy((m.item as { adminName: string }).adminName)}</span>
+                    </span>
+                    <span className="upcoming-when">{when(m)}</span>
+                  </button>
+                  <Button size="sm" variant={m.now ? 'success' : 'secondary'} icon={m.item.admin ? Play : LogIn} onClick={() => openUpcoming(m.item)}>
+                    {m.item.admin ? (live.has(m.item.code) ? t.home.rejoin : t.home.start) : t.home.joinNow}
+                  </Button>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
 
-        {!spaces && !error && <Spinner />}
-        {spaces?.length === 0 && (
+        {spaces.length === 0 && joined.length === 0 && (
           <EmptyState
             icon={Sparkles}
             title={t.home.emptyTitle}
@@ -158,12 +158,30 @@ export function Home({ newSpace }: { newSpace?: boolean }) {
           />
         )}
 
-        {hosted.length > 0 && (
+        {spaces.length > 0 && (
           <>
             <h2 className="section-title">{t.home.yourSpaces}</h2>
             <div className="space-grid">
-              {hosted.map((s) => (
-                <SpaceCard key={s.id} space={s} onOpen={() => open(s)} onInvite={() => setInviting(s)} onDetails={() => navigate({ name: 'space', id: s.id })} />
+              {spaces.map((s) => (
+                <SpaceCard
+                  key={s.id}
+                  title={s.title}
+                  color={s.color}
+                  picture={s.picture}
+                  badge={live.has(s.code) ? <Badge tone="live">{t.home.live}</Badge> : <Badge>{t.kinds[s.kind].name}</Badge>}
+                  line={s.schedule ? formatSchedule(s.schedule, settings.lang) : t.spaceForm.scheduleOff}
+                  onOpen={() => navigate({ name: 'space', id: s.id })}
+                  actions={
+                    <>
+                      <Button size="sm" icon={Play} onClick={() => void openCall({ admin: s })}>
+                        {live.has(s.code) ? t.home.rejoin : t.home.start}
+                      </Button>
+                      <Button size="sm" variant="secondary" icon={Send} onClick={() => setInviting(s)}>
+                        {t.home.invite}
+                      </Button>
+                    </>
+                  }
+                />
               ))}
             </div>
           </>
@@ -172,8 +190,21 @@ export function Home({ newSpace }: { newSpace?: boolean }) {
           <>
             <h2 className="section-title">{t.home.joined}</h2>
             <div className="space-grid">
-              {joined.map((s) => (
-                <SpaceCard key={s.id} space={s} onOpen={() => open(s)} />
+              {joined.map((j) => (
+                <SpaceCard
+                  key={j.code}
+                  title={j.title}
+                  color={j.color}
+                  picture={j.picture}
+                  badge={live.has(j.code) ? <Badge tone="live">{t.home.live}</Badge> : <Badge>{t.kinds[j.kind].name}</Badge>}
+                  line={t.home.hostedBy(j.adminName)}
+                  onOpen={() => navigate({ name: 'space', id: `j:${j.code}` })}
+                  actions={
+                    <Button size="sm" icon={LogIn} onClick={() => void openCall({ code: j.code })}>
+                      {t.home.joinNow}
+                    </Button>
+                  }
+                />
               ))}
             </div>
           </>
@@ -185,56 +216,38 @@ export function Home({ newSpace }: { newSpace?: boolean }) {
           onClose={() => setCreating(false)}
           onSaved={(s) => {
             setCreating(false);
-            reload();
             setInviting(s);
           }}
         />
       )}
       {inviting && (
-        <Modal title={`${t.space.invite} · ${inviting.emoji} ${inviting.title}`} onClose={() => setInviting(null)}>
-          <InviteBox space={inviting} onChange={(s) => (setInviting(s), reload())} />
+        <Modal title={`${t.space.invite}: ${inviting.title}`} onClose={() => setInviting(null)}>
+          <InviteBox space={inviting} />
         </Modal>
       )}
     </AppShell>
   );
 }
 
-function SpaceCard({ space: s, onOpen, onInvite, onDetails }: { space: SpaceDto; onOpen: () => void; onInvite?: () => void; onDetails?: () => void }) {
-  const t = useT();
-  const { settings } = useSettings();
+function SpaceCard(props: { title: string; color: string; picture: string | null; badge: React.ReactNode; line: string; onOpen: () => void; actions: React.ReactNode }) {
   return (
     <article
-      className={`space-card ${onDetails ? 'is-clickable' : ''}`}
-      style={{ '--space-color': s.color } as React.CSSProperties}
-      onClick={onDetails}
-      onKeyDown={(e) => onDetails && e.key === 'Enter' && onDetails()}
-      tabIndex={onDetails ? 0 : undefined}
+      className="space-card is-clickable"
+      style={{ '--space-color': props.color } as React.CSSProperties}
+      onClick={props.onOpen}
+      onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && props.onOpen()}
+      tabIndex={0}
     >
-      <div className="space-card-top">
-        <span className="space-emoji">{s.emoji}</span>
-        <div className="row">
-          {s.hasPassword && (
-            <span className="icon-chip" title={t.home.locked}>
-              <Lock size={13} />
-            </span>
-          )}
-          {s.live ? <Badge tone="live">● {t.home.live}</Badge> : <Badge>{t.kinds[s.kind].name}</Badge>}
+      <div className="space-banner">{props.badge}</div>
+      <div className="space-body">
+        <span className="space-card-icon">
+          <SpaceIcon title={props.title} color={props.color} picture={props.picture} size={56} />
+        </span>
+        <h3>{props.title}</h3>
+        <p className="muted small">{props.line}</p>
+        <div className="space-card-actions" onClick={(e) => e.stopPropagation()}>
+          {props.actions}
         </div>
-      </div>
-      <h3>{s.title}</h3>
-      <p className="muted small">{s.isHost ? s.schedule || t.kinds[s.kind].name : t.home.hostedBy(s.hostName)}</p>
-      <p className="muted small icon-line">
-        <Users size={14} /> {t.home.people(s.peopleCount)} · {s.lastCallAt ? t.home.lastCall(formatRelative(s.lastCallAt, settings.lang)) : t.home.neverHeld}
-      </p>
-      <div className="space-card-actions" onClick={(e) => e.stopPropagation()}>
-        <Button size="sm" icon={Play} disabled={!s.isHost && !s.live} onClick={onOpen}>
-          {s.isHost ? (s.live ? t.home.rejoin : t.home.start) : t.home.joinNow}
-        </Button>
-        {onInvite && (
-          <Button size="sm" variant="secondary" icon={Send} onClick={onInvite}>
-            {t.home.invite}
-          </Button>
-        )}
       </div>
     </article>
   );

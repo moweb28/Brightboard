@@ -1,7 +1,7 @@
-import { formatRoomCode, type SpaceDto } from '@classroom/protocol';
+import { formatRoomCode } from '@classroom/protocol';
 import { Check, Copy, KeyRound, LockOpen, Send } from 'lucide-react';
 import { useState } from 'react';
-import { api, inviteLink, randomPassword } from '../lib/api';
+import { inviteLink, randomPassword } from '../lib/call';
 import { useT } from '../lib/settings';
 import { Button, IconButton } from './ui';
 
@@ -25,11 +25,10 @@ function CopyRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Link, code and (optional) password for a space. Hosts can also change the password. */
-export function InviteBox({ space, onChange }: { space: Pick<SpaceDto, 'id' | 'code' | 'title' | 'password'>; onChange?: (s: SpaceDto) => void }) {
+/** Link, code and (optional) password for a space. Admins can also change the password. */
+export function InviteBox({ space, onPasswordChange }: { space: { code: string; title: string; password?: string }; onPasswordChange?: (pw: string) => void }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
-  const [busy, setBusy] = useState(false);
   const link = inviteLink(space.code);
   const password = space.password ?? '';
 
@@ -37,15 +36,6 @@ export function InviteBox({ space, onChange }: { space: Pick<SpaceDto, 'id' | 'c
     await navigator.clipboard.writeText(t.space.inviteMessage(space.title, link, formatRoomCode(space.code), password));
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
-  };
-
-  const setPassword = async (pw: string) => {
-    setBusy(true);
-    try {
-      onChange?.(await api.updateSpace(space.id, { password: pw }));
-    } finally {
-      setBusy(false);
-    }
   };
 
   return (
@@ -65,18 +55,18 @@ export function InviteBox({ space, onChange }: { space: Pick<SpaceDto, 'id' | 'c
         <Button icon={copied ? Check : Send} onClick={copyAll}>
           {copied ? t.common.copied : t.space.copyInvitation}
         </Button>
-        {onChange &&
+        {onPasswordChange &&
           (password ? (
             <>
-              <Button variant="secondary" icon={KeyRound} loading={busy} onClick={() => setPassword(randomPassword())}>
+              <Button variant="secondary" icon={KeyRound} onClick={() => onPasswordChange(randomPassword())}>
                 {t.space.newPassword}
               </Button>
-              <Button variant="ghost" icon={LockOpen} disabled={busy} onClick={() => setPassword('')}>
+              <Button variant="ghost" icon={LockOpen} onClick={() => onPasswordChange('')}>
                 {t.space.removePassword}
               </Button>
             </>
           ) : (
-            <Button variant="secondary" icon={KeyRound} loading={busy} onClick={() => setPassword(randomPassword())}>
+            <Button variant="secondary" icon={KeyRound} onClick={() => onPasswordChange(randomPassword())}>
               {t.space.addPassword}
             </Button>
           ))}

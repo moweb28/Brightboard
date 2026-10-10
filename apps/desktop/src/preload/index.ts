@@ -22,6 +22,10 @@ export interface BrightboardBridge {
   selectScreenSource(id: string): Promise<void>;
   /** Tells the app this computer stopped sharing its screen. */
   screenShareStopped(): void;
+  store: {
+    load(): Promise<unknown>;
+    save(data: unknown): Promise<void>;
+  };
   files: {
     /** Media source id of this app window, for recording what the user sees. */
     windowSource(): Promise<string | null>;
@@ -51,6 +55,10 @@ const bridge: BrightboardBridge = {
   getScreenSources: () => ipcRenderer.invoke('screen:sources'),
   selectScreenSource: (id) => ipcRenderer.invoke('screen:select', id),
   screenShareStopped: () => ipcRenderer.send('screen:stopped'),
+  store: {
+    load: () => ipcRenderer.invoke('store:load'),
+    save: (data) => ipcRenderer.invoke('store:save', data),
+  },
   files: {
     windowSource: () => ipcRenderer.invoke('rec:windowSource'),
     startRecording: (title) => ipcRenderer.invoke('rec:start', title),

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { safeGet, safeSet } from './api';
+import { safeGet, safeSet } from './storage';
 import { dictionaries, type Dict, type Lang } from './i18n';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -26,7 +26,7 @@ export interface Settings {
   /** Admin: what to do about recording when a session starts. */
   recordPrompt: 'ask' | 'always' | 'never';
   /** Spaces where the admin chose "don't ask again". */
-  noRecordAsk: number[];
+  noRecordAsk: string[];
   /** Whiteboard smart pen. */
   boardShapes: boolean;
   boardHandwriting: boolean;

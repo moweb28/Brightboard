@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { DeviceCheck } from '../components/DeviceCheck';
 import { Logo, QuickPrefs } from '../components/layout';
 import { Badge, Button } from '../components/ui';
-import { useAuth } from '../lib/auth';
-import { colorFor } from '../lib/format';
+import { useProfile } from '../lib/store';
 import { useSettings, useT } from '../lib/settings';
 
 export interface JoinChoices {
@@ -16,11 +15,11 @@ export interface JoinChoices {
 export function PreJoin({ join, onJoin, onCancel }: { join: JoinInfo; onJoin: (c: JoinChoices) => void; onCancel: () => void }) {
   const t = useT();
   const { settings } = useSettings();
-  const { user } = useAuth();
+  const profile = useProfile();
   const [mic, setMic] = useState(!settings.joinMuted);
   const [cam, setCam] = useState(!settings.joinCameraOff);
-  const name = user?.displayName ?? '';
-  const color = user?.avatarColor ?? colorFor(join.identity);
+  const name = profile.name;
+  const color = profile.color;
 
   return (
     <div className="prejoin">
@@ -33,7 +32,7 @@ export function PreJoin({ join, onJoin, onCancel }: { join: JoinInfo; onJoin: (c
           <DeviceCheck name={name || '?'} color={color} camOn={cam} micOn={mic} onToggleCam={() => setCam(!cam)} onToggleMic={() => setMic(!mic)} />
         </div>
         <aside className="prejoin-side card card-pad">
-          <Badge tone="accent">{join.spaceEmoji} {t.kinds[join.kind].name}</Badge>
+          <Badge tone="accent">{t.kinds[join.kind].name}</Badge>
           <h1>{join.spaceTitle}</h1>
           <h2 className="muted">{t.meeting.prejoinTitle}</h2>
           <p className="muted">{t.meeting.prejoinSubtitle}</p>

@@ -1,29 +1,25 @@
 import { extractRoomCode, formatRoomCode } from '@classroom/protocol';
-import { ArrowLeft, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { AppShell, AuthLayout } from '../components/layout';
+import { AppShell } from '../components/layout';
 import { Button, ErrorText, Field } from '../components/ui';
-import { api, safeGet, safeSet } from '../lib/api';
-import { useAuth } from '../lib/auth';
-import { useNavigate } from '../lib/nav';
 import { useT } from '../lib/settings';
-import { useAsync } from '../lib/useAsync';
+import { useProfile } from '../lib/store';
+import { useOpenCall } from '../lib/useOpenCall';
 
-const NAME_KEY = 'guestName';
-
-/** The join form, shared by guests (before login) and logged-in students. */
-export function JoinForm({ initialCode }: { initialCode?: string }) {
+/** Paste a link or type a code (and the password if there is one) to join someone's space. */
+export function JoinPage({ code }: { code?: string }) {
   const t = useT();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [codeInput, setCodeInput] = useState(initialCode ? formatRoomCode(initialCode) : '');
-  const [name, setName] = useState(() => safeGet(NAME_KEY) ?? '');
+  const profile = useProfile();
+  const openCall = useOpenCall();
+  const [codeInput, setCodeInput] = useState(code ? formatRoomCode(code) : '');
   const [password, setPassword] = useState('');
-  const { busy, error, setError, run } = useAsync();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (initialCode) setCodeInput(formatRoomCode(initialCode));
-  }, [initialCode]);
+    if (code) setCodeInput(formatRoomCode(code));
+  }, [code]);
 
   // Pasting a full invite link turns into the short code.
   const onCodeChange = (value: string) => {
@@ -31,63 +27,15 @@ export function JoinForm({ initialCode }: { initialCode?: string }) {
     setCodeInput(fromLink ? formatRoomCode(fromLink) : value.toUpperCase());
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const code = extractRoomCode(codeInput);
-    if (!code) return setError('badCode');
-    run(async () => {
-      if (!user) safeSet(NAME_KEY, name.trim());
-      const join = await api.join(code, user ? user.displayName : name.trim(), password);
-      navigate({ name: 'meeting', join });
-    });
+    const room = extractRoomCode(codeInput);
+    if (!room) return setError('badCode');
+    setError(null);
+    setBusy(true);
+    if (!(await openCall({ code: room, password }))) setBusy(false);
   };
 
-  return (
-    <form onSubmit={submit} className="stack">
-      <Field
-        label={t.join.code}
-        className="code-input"
-        dir="ltr"
-        value={codeInput}
-        onChange={(e) => onCodeChange(e.target.value)}
-        placeholder={t.join.codePlaceholder}
-        spellCheck={false}
-        autoFocus={!initialCode}
-        required
-      />
-      {user ? (
-        <p className="muted small">{t.join.joiningAs(user.displayName)}</p>
-      ) : (
-        <Field label={t.join.yourName} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder={t.join.namePlaceholder} required autoFocus={!!initialCode} />
-      )}
-      <Field label={t.join.password} type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus={!!initialCode && !!user} />
-      <ErrorText code={error} />
-      <Button size="lg" icon={LogIn} block loading={busy} disabled={!user && !name.trim()}>
-        {t.join.button}
-      </Button>
-    </form>
-  );
-}
-
-export function GuestJoin({ code }: { code?: string }) {
-  const t = useT();
-  const navigate = useNavigate();
-  return (
-    <AuthLayout>
-      <Button variant="link" icon={ArrowLeft} className="back-link" onClick={() => navigate({ name: 'welcome' })}>
-        {t.common.back}
-      </Button>
-      <header className="heading">
-        <h2>{t.join.title}</h2>
-        <p className="muted">{t.join.subtitle}</p>
-      </header>
-      <JoinForm initialCode={code} />
-    </AuthLayout>
-  );
-}
-
-export function JoinPage({ code }: { code?: string }) {
-  const t = useT();
   return (
     <AppShell active="join">
       <div className="page page-narrow">
@@ -97,9 +45,25 @@ export function JoinPage({ code }: { code?: string }) {
             <p className="muted">{t.join.subtitle}</p>
           </div>
         </header>
-        <div className="card card-pad">
-          <JoinForm initialCode={code} />
-        </div>
+        <form onSubmit={submit} className="card card-pad stack">
+          <Field
+            label={t.join.code}
+            className="code-input"
+            dir="ltr"
+            value={codeInput}
+            onChange={(e) => onCodeChange(e.target.value)}
+            placeholder={t.join.codePlaceholder}
+            spellCheck={false}
+            autoFocus={!code}
+            required
+          />
+          <Field label={t.join.password} type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus={!!code} />
+          <p className="muted small">{t.join.joiningAs(profile.name)}</p>
+          <ErrorText code={error} />
+          <Button size="lg" icon={LogIn} block loading={busy}>
+            {t.join.button}
+          </Button>
+        </form>
       </div>
     </AppShell>
   );

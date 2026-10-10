@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import icon from '../../build/icon.png?asset';
 import { registerFileHandlers } from './files';
 import { registerRemoteControl, setSharedSource } from './remote';
+import { registerStore } from './store';
 
 const PROTOCOL = 'brightboard';
 const ALLOWED_PERMISSIONS = new Set(['media', 'display-capture', 'clipboard-sanitized-write', 'fullscreen']);
@@ -67,6 +68,7 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.on('screen:stopped', () => setSharedSource(null));
     registerRemoteControl(() => mainWindow);
     registerFileHandlers(() => mainWindow);
+    registerStore();
     ipcMain.handle('screen:select', (_e, id: string) => {
       selectedScreenSource = typeof id === 'string' ? id : null;
     });
@@ -95,7 +97,7 @@ function createWindow() {
     minHeight: 600,
     title: 'Brightboard',
     icon,
-    backgroundColor: '#FFF9F0',
+    backgroundColor: '#1f2024',
     autoHideMenuBar: true,
     webPreferences: { preload: join(import.meta.dirname, '../preload/index.cjs'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });

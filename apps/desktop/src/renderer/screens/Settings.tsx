@@ -1,19 +1,17 @@
-import { AVATAR_COLORS, USE_CASES, type UseCase } from '@classroom/protocol';
-import { Bell, Check, CircleDot, Languages, LogOut, Palette, ShieldCheck, User, Video } from 'lucide-react';
+import { AVATAR_COLORS } from '@classroom/protocol';
+import { Bell, Check, CircleDot, HardDrive, Languages, Palette, User, Video } from 'lucide-react';
 import { useState } from 'react';
 import { LanguagePicker, ScenePicker, ThemePicker } from '../components/AppearancePicker';
 import { DeviceCheck } from '../components/DeviceCheck';
 import { AppShell } from '../components/layout';
 import { useToast } from '../components/toast';
-import { Avatar, Button, ColorPicker, ErrorText, Field, Segmented, Toggle } from '../components/ui';
-import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { PicturePicker } from '../components/PicturePicker';
+import { Avatar, Button, ColorPicker, Field, Segmented, Toggle } from '../components/ui';
 import { BACKGROUND_IMAGES, backgroundsSupported } from '../lib/effects';
 import { BACKGROUNDS, useSettings, useT } from '../lib/settings';
-import { USE_CASE_ICONS } from './Onboarding';
-import { useAsync } from '../lib/useAsync';
+import { useProfile, useStore } from '../lib/store';
 
-type Section = 'profile' | 'appearance' | 'language' | 'audioVideo' | 'sessions' | 'notifications' | 'account';
+type Section = 'profile' | 'appearance' | 'language' | 'audioVideo' | 'sessions' | 'notifications' | 'data';
 
 export function SettingsPage() {
   const t = useT();
@@ -25,7 +23,7 @@ export function SettingsPage() {
     { id: 'audioVideo', icon: Video, label: t.settings.audioVideo },
     { id: 'sessions', icon: CircleDot, label: t.recording.section },
     { id: 'notifications', icon: Bell, label: t.settings.notifications },
-    { id: 'account', icon: ShieldCheck, label: t.settings.account },
+    { id: 'data', icon: HardDrive, label: t.settings.yourData },
   ];
   return (
     <AppShell active="settings">
@@ -55,7 +53,7 @@ export function SettingsPage() {
             {section === 'audioVideo' && <AudioVideoSection />}
             {section === 'sessions' && <SessionsSection />}
             {section === 'notifications' && <NotificationsSection />}
-            {section === 'account' && <AccountSection />}
+            {section === 'data' && <p className="muted">{t.settings.dataNote}</p>}
           </div>
         </div>
       </div>
@@ -66,50 +64,25 @@ export function SettingsPage() {
 function ProfileSection() {
   const t = useT();
   const toast = useToast();
-  const { user, update } = useAuth();
-  const [displayName, setDisplayName] = useState(user!.displayName);
-  const [avatarColor, setAvatarColor] = useState(user!.avatarColor);
-  const [about, setAbout] = useState(user!.about);
-  const [useCases, setUseCases] = useState<UseCase[]>(user!.useCases);
-  const { busy, error, run } = useAsync();
-  const toggleUse = (u: UseCase) => setUseCases((list) => (list.includes(u) ? list.filter((x) => x !== u) : [...list, u]));
+  const profile = useProfile();
+  const { setProfile } = useStore();
+  const [name, setName] = useState(profile.name);
+  const [color, setColor] = useState(profile.color);
+  const [picture, setPicture] = useState(profile.picture);
+  const [about, setAbout] = useState(profile.about);
   const save = (e: React.FormEvent) => {
     e.preventDefault();
-    run(async () => {
-      await update({ displayName: displayName.trim(), avatarColor, about: about.trim(), useCases });
-      toast({ text: t.common.saved, icon: Check, tone: 'success' });
-    });
+    setProfile({ ...profile, name: name.trim(), color, picture, about: about.trim() });
+    toast({ text: t.common.saved, icon: Check, tone: 'success' });
   };
   return (
     <form className="stack" onSubmit={save}>
-      <div className="profile-preview">
-        <Avatar name={displayName || '?'} color={avatarColor} size={80} ring />
-      </div>
-      <Field label={t.onboarding.displayName} maxLength={40} required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-      <ColorPicker label={t.onboarding.avatarColor} colors={AVATAR_COLORS} value={avatarColor} onChange={setAvatarColor} />
+      <PicturePicker preview={<Avatar name={name || '?'} color={color} picture={picture} size={80} />} value={picture} onChange={setPicture} />
+      <Field label={t.onboarding.displayName} maxLength={40} required value={name} onChange={(e) => setName(e.target.value)} />
+      {!picture && <ColorPicker label={t.onboarding.avatarColor} colors={AVATAR_COLORS} value={color} onChange={setColor} />}
       <Field label={t.onboarding.about} placeholder={t.onboarding.aboutPlaceholder} maxLength={120} value={about} onChange={(e) => setAbout(e.target.value)} />
-      <div className="field">
-        <span className="field-label">{t.onboarding.useTitle}</span>
-        <div className="choice-grid">
-          {USE_CASES.map((u) => {
-            const Icon = USE_CASE_ICONS[u];
-            const on = useCases.includes(u);
-            return (
-              <button key={u} type="button" aria-pressed={on} className={`choice ${on ? 'is-active' : ''}`} onClick={() => toggleUse(u)}>
-                <span className="choice-icon">
-                  <Icon size={20} />
-                </span>
-                <span>{t.useCases[u]}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <ErrorText code={error} />
       <div>
-        <Button loading={busy} disabled={!displayName.trim()}>
-          {t.common.save}
-        </Button>
+        <Button disabled={!name.trim()}>{t.common.save}</Button>
       </div>
     </form>
   );
@@ -133,12 +106,12 @@ function AppearanceSection() {
 
 function AudioVideoSection() {
   const t = useT();
-  const { user } = useAuth();
+  const profile = useProfile();
   const { settings, set } = useSettings();
   const supported = backgroundsSupported();
   return (
     <div className="stack">
-      <DeviceCheck name={user!.displayName} color={user!.avatarColor} />
+      <DeviceCheck name={profile.name} color={profile.color} picture={profile.picture} />
       <div className="field">
         <span className="field-label">{t.settings.background}</span>
         {supported ? (
@@ -220,51 +193,6 @@ function NotificationsSection() {
       <Toggle label={t.settings.soundChat} checked={settings.soundChat} onChange={(v) => set('soundChat', v)} />
       <Toggle label={t.settings.soundJoin} checked={settings.soundJoin} onChange={(v) => set('soundJoin', v)} />
       <Toggle label={t.settings.soundHand} checked={settings.soundHand} onChange={(v) => set('soundHand', v)} />
-    </div>
-  );
-}
-
-function AccountSection() {
-  const t = useT();
-  const toast = useToast();
-  const { user, logout } = useAuth();
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState('');
-  const { busy, error, run } = useAsync();
-  const change = (e: React.FormEvent) => {
-    e.preventDefault();
-    run(async () => {
-      await api.changePassword(current, next);
-      setCurrent('');
-      setNext('');
-      toast({ text: t.settings.passwordChanged, icon: Check, tone: 'success' });
-    });
-  };
-  return (
-    <div className="stack">
-      <dl className="info-list">
-        <dt>{t.settings.email}</dt>
-        <dd dir="ltr">{user!.email}</dd>
-      </dl>
-      <form className="stack" onSubmit={change}>
-        <h3>{t.settings.changePassword}</h3>
-        <div className="grid-2">
-          <Field label={t.settings.currentPassword} type="password" dir="ltr" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
-          <Field label={t.settings.newPassword} type="password" dir="ltr" autoComplete="new-password" minLength={8} hint={t.auth.passwordHint} value={next} onChange={(e) => setNext(e.target.value)} required />
-        </div>
-        <ErrorText code={error} />
-        <div>
-          <Button variant="secondary" loading={busy}>
-            {t.settings.changePassword}
-          </Button>
-        </div>
-      </form>
-      <hr className="sep" />
-      <div>
-        <Button variant="danger" icon={LogOut} onClick={logout}>
-          {t.common.logOut}
-        </Button>
-      </div>
     </div>
   );
 }

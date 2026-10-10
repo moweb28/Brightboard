@@ -30,8 +30,8 @@ import { useEffect, useRef, useState } from 'react';
 import { InviteBox } from '../components/InviteBox';
 import { Logo } from '../components/layout';
 import { useToast } from '../components/toast';
-import { Badge, Button, Menu, Modal } from '../components/ui';
-import { api } from '../lib/api';
+import { Badge, Button, Menu, Modal, SpaceIcon } from '../components/ui';
+import { callService } from '../lib/call';
 import { applyBackground } from '../lib/effects';
 import { formatDuration } from '../lib/format';
 import { useSettings, useT } from '../lib/settings';
@@ -56,10 +56,10 @@ import { useBoardSync } from './board/useBoardSync';
 interface Props {
   join: JoinInfo;
   choices: JoinChoices;
-  invitePassword?: string;
+  password?: string;
 }
 
-export function RoomView({ join, choices, invitePassword }: Props) {
+export function RoomView({ join, choices, password }: Props) {
   const t = useT();
   const toast = useToast();
   const { settings } = useSettings();
@@ -70,7 +70,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
   const meta = roomMetaOf(room);
   const amHost = join.role === 'host';
   const waiting = isWaiting(local);
-  const moderate = useModerate(join.spaceId);
+  const moderate = useModerate(join.roomName);
 
   const [panel, setPanel] = useState<'chat' | 'people' | 'transcript' | null>(null);
   const [layout, setLayout] = useState<Layout>('grid');
@@ -190,7 +190,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
   };
   const endForAll = async () => {
     await Promise.all([rec.stop(), tx.stop()]);
-    await api.end(join.spaceId).catch(() => undefined);
+    await callService.end(join.roomName).catch(() => undefined);
     room.disconnect();
   };
 
@@ -219,7 +219,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
     <div className="room">
       <header className="room-top">
         <div className="chip chip-title">
-          <span className="chip-emoji">{join.spaceEmoji}</span>
+          <SpaceIcon title={join.spaceTitle} color={join.spaceColor} picture={join.spacePicture} size={24} />
           <strong>{join.spaceTitle}</strong>
           <span className="chip-sep" aria-hidden />
           <span className="live-dot" aria-hidden />
@@ -293,7 +293,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
         </div>
         {panel === 'chat' && <ChatPanel room={room} chat={chat} canSend={chatAllowed} onClose={() => setPanel(null)} />}
         {panel === 'transcript' && <TranscriptPanel tx={tx} onClose={() => setPanel(null)} />}
-        {panel === 'people' && <PeoplePanel room={room} spaceId={join.spaceId} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} onClose={() => setPanel(null)} />}
+        {panel === 'people' && <PeoplePanel room={room} spaceId={join.roomName} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} onClose={() => setPanel(null)} />}
       </div>
 
       <footer className="dock-wrap">
@@ -382,7 +382,7 @@ export function RoomView({ join, choices, invitePassword }: Props) {
       {devicesOpen && <MeetingSettings room={room} onClose={() => setDevicesOpen(false)} />}
       {inviteOpen && (
         <Modal title={t.space.invite} onClose={() => setInviteOpen(false)}>
-          <InviteBox space={{ id: join.spaceId, code: join.roomName, title: join.spaceTitle, password: invitePassword }} />
+          <InviteBox space={{ code: join.roomName, title: join.spaceTitle, password }} />
         </Modal>
       )}
     </div>

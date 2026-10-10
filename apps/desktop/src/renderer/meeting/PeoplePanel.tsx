@@ -3,14 +3,15 @@ import { Track, type Participant, type Room } from 'livekit-client';
 import { DoorOpen, EyeOff, Hand, Lock, LockOpen, MessageSquare, MessageSquareOff, Mic, MicOff, MonitorUp, MoreVertical, Search, UserCheck, Video, VideoOff, X } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, Badge, Button, IconButton, Menu } from '../components/ui';
-import { api } from '../lib/api';
+import { callService } from '../lib/call';
 import { useT } from '../lib/settings';
 import { participantActions } from './moderation';
 import { allParticipants, colorOf, handUp, isAway, isHost, isWaiting, nameOf } from './participants';
 
 interface Props {
   room: Room;
-  spaceId: number;
+  /** Room code. */
+  spaceId: string;
   meta: RoomMeta;
   amHost: boolean;
   pinned: string | null;
@@ -48,7 +49,7 @@ export function PeoplePanel({ room, spaceId, meta, amHost, pinned, setPinned, mo
           <Button size="sm" variant="secondary" icon={meta.chatEnabled ? MessageSquareOff : MessageSquare} onClick={() => moderate({ action: 'chat', value: !meta.chatEnabled })}>
             {meta.chatEnabled ? t.meeting.chatOff : t.meeting.chatOn}
           </Button>
-          <Button size="sm" variant="secondary" icon={DoorOpen} onClick={() => api.updateSpace(spaceId, { waitingRoom: !meta.waitingRoom }).catch(() => undefined)}>
+          <Button size="sm" variant="secondary" icon={DoorOpen} onClick={() => callService.updateRoom(spaceId, { waitingRoom: !meta.waitingRoom }).catch(() => undefined)}>
             {meta.waitingRoom ? t.meeting.waitingOff : t.meeting.waitingOn}
           </Button>
         </div>

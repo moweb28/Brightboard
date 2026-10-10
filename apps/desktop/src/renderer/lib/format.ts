@@ -46,3 +46,28 @@ export function dayPart(): 'morning' | 'afternoon' | 'evening' {
   const h = new Date().getHours();
   return h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
 }
+
+/** Weekday name for 0 = Sunday … 6 = Saturday. */
+export function weekdayName(day: number, lang: Lang, width: 'short' | 'long' = 'short') {
+  // 2023-01-01 was a Sunday.
+  return new Date(2023, 0, 1 + day).toLocaleDateString(locale(lang), { weekday: width });
+}
+
+/** The week as people there count it: Sunday first in English, Saturday first in Arabic. */
+export const weekOrder = (lang: Lang) => (lang === 'ar' ? [6, 0, 1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5, 6]);
+
+/** "Sun and Tue, 10:00 AM" */
+export function formatSchedule(schedule: { days: number[]; time: string }, lang: Lang) {
+  const [h, m] = schedule.time.split(':').map(Number);
+  const time = new Date(2023, 0, 1, h, m).toLocaleTimeString(locale(lang), { hour: 'numeric', minute: '2-digit' });
+  const days = weekOrder(lang).filter((d) => schedule.days.includes(d));
+  const names = days.length === 7 ? [lang === 'ar' ? 'كل يوم' : 'Every day'] : days.map((d) => weekdayName(d, lang));
+  return `${new Intl.ListFormat(locale(lang), { style: 'short', type: 'conjunction' }).format(names)}, ${time}`;
+}
+
+/** "Today", "Tomorrow" or "Thu, Oct 16", for an upcoming meeting. */
+export function formatDay(date: Date, lang: Lang, now = new Date()) {
+  const days = Math.round((new Date(date).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / 86_400_000);
+  if (days === 0 || days === 1) return new Intl.RelativeTimeFormat(locale(lang), { numeric: 'auto' }).format(days, 'day');
+  return formatDate(date.getTime(), lang);
+}

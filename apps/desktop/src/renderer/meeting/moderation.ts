@@ -4,13 +4,13 @@ import { MicOff, MonitorOff, MonitorUp, Pin, PinOff, Star, StarOff, UserMinus, V
 import { useCallback, useRef } from 'react';
 import { useToast } from '../components/toast';
 import type { MenuItem } from '../components/ui';
-import { api } from '../lib/api';
+import { callService } from '../lib/call';
 import type { Dict } from '../lib/i18n';
 import { useT } from '../lib/settings';
 import { canShareScreen, isHost, nameOf } from './participants';
 
 /** Stable across renders, so hooks that depend on it don't re-run their effects. */
-export function useModerate(spaceId: number) {
+export function useModerate(code: string) {
   const toast = useToast();
   const t = useT();
   const tRef = useRef(t);
@@ -18,13 +18,13 @@ export function useModerate(spaceId: number) {
   return useCallback(
     async (action: ModerateAction) => {
       try {
-        await api.moderate(spaceId, action);
+        await callService.moderate(code, action);
       } catch (e) {
         const code = (e as { code?: string }).code ?? 'generic';
         toast({ text: tRef.current.errors[code] ?? tRef.current.errors.generic, tone: 'warn' });
       }
     },
-    [spaceId, toast],
+    [code, toast],
   );
 }
 
