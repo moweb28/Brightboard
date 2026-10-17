@@ -7,9 +7,9 @@
   ],
   "scripts": {
     "test": "npm test --workspaces --if-present",
-    "dev:livekit": "node scripts/get-livekit.mjs && node scripts/run-livekit.mjs",
-    "dev:server": "npm run dev -w @classroom/server",
-    "dev:desktop": "npm run dev -w @classroom/desktop"
+    "dev:relay": "npm run dev -w @classroom/relay",
+    "dev:desktop": "npm run dev -w @classroom/desktop",
+    "build:win": "npm run dist -w @classroom/desktop"
   },
   "allowScripts": {
     "electron@38.8.6": true,
