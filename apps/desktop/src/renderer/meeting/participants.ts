@@ -1,10 +1,7 @@
 import type { ParticipantMeta, RoomMeta } from '@classroom/protocol';
-import { RoomEvent, type Participant, type Room } from 'livekit-client';
+import { RoomEvent, type Participant, type Room } from '../lib/rtc';
 import { useEffect, useState } from 'react';
 import { colorFor } from '../lib/format';
-
-/** protocol TrackSource.SCREEN_SHARE */
-const SCREEN_SHARE_SOURCE = 3;
 
 export function metaOf(p: Participant): ParticipantMeta {
   try {
@@ -21,11 +18,9 @@ export const isAway = (p: Participant) => p.attributes?.away === '1';
 export const colorOf = (p: Participant) => metaOf(p).avatarColor || colorFor(p.identity);
 export const nameOf = (p: Participant) => p.name || p.identity;
 
-/** Whether the server lets this participant publish a screen share. Empty list = everything allowed. */
-export function canShareScreen(p: Participant) {
-  const sources = p.permissions?.canPublishSources as number[] | undefined;
-  return !sources || sources.length === 0 || sources.includes(SCREEN_SHARE_SOURCE);
-}
+/** Admins can always share their screen; guests when the space or the admin allows it. */
+export const canShareScreen = (p: Participant) => isHost(p) || p.canShare;
+export const pictureOf = (p: Participant): string | null => metaOf(p).picture ?? null;
 
 const EVENTS = [
   RoomEvent.ParticipantConnected,

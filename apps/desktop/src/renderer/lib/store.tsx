@@ -23,7 +23,7 @@ interface Store {
   createSpace(input: SpaceInput): Space;
   updateSpace(id: string, patch: Partial<Space>): void;
   deleteSpace(id: string): void;
-  rememberJoined(code: string, info: SharedSpaceInfo): void;
+  rememberJoined(code: string, info: SharedSpaceInfo, password?: string): void;
   forgetJoined(code: string): void;
   startCall(spaceId: string): string;
   endCall(callId: string): void;
@@ -91,8 +91,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       updateSpace: (id, patch) => change((d) => ({ ...d, spaces: d.spaces.map((s) => (s.id === id ? { ...s, ...patch, id: s.id, code: s.code, adminKey: s.adminKey } : s)) })),
       deleteSpace: (id) => change((d) => ({ ...d, spaces: d.spaces.filter((s) => s.id !== id), calls: d.calls.filter((c) => c.spaceId !== id) })),
-      rememberJoined: (code, info) =>
-        change((d) => ({ ...d, joined: [{ ...info, code, lastJoinedAt: Date.now() }, ...d.joined.filter((j) => j.code !== code)] })),
+      rememberJoined: (code, info, password) =>
+        change((d) => ({ ...d, joined: [{ ...info, code, password: password || undefined, lastJoinedAt: Date.now() }, ...d.joined.filter((j) => j.code !== code)] })),
       forgetJoined: (code) => change((d) => ({ ...d, joined: d.joined.filter((j) => j.code !== code) })),
       startCall(spaceId) {
         const id = randomId();

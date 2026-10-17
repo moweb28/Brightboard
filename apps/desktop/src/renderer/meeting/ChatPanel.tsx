@@ -1,11 +1,11 @@
 import { CHAT_REACTIONS, linkify, MAX_CHAT_LENGTH, type ChatMessage } from '@classroom/protocol';
-import type { Room } from 'livekit-client';
+import type { Room } from '../lib/rtc';
 import { Lock, MessageSquareText, Reply, SendHorizontal, Smile, SmilePlus, X } from 'lucide-react';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Avatar, IconButton } from '../components/ui';
 import { colorFor, formatTime } from '../lib/format';
 import { useSettings, useT } from '../lib/settings';
-import { colorOf } from './participants';
+import { colorOf, pictureOf } from './participants';
 import type { Chat } from './useChat';
 
 const EMOJIS = '😀 😃 😄 😁 😂 🤣 😊 😍 🥰 😎 🤓 🤔 😮 😢 😡 🙌 👏 👍 👎 🙏 💪 ✋ 👋 🎉 🔥 ⭐ ✅ ❌ ❓ ❗ 💡 📚 ✏️ 📝 🧮 🧪 🌍 ❤️ 💯 🚀'.split(' ');
@@ -39,6 +39,10 @@ export function ChatPanel({ room, chat, canSend, onClose }: { room: Room; chat: 
   const colorForSender = (identity: string) => {
     const p = identity === me ? room.localParticipant : room.remoteParticipants.get(identity);
     return p ? colorOf(p) : colorFor(identity);
+  };
+  const pictureForSender = (identity: string) => {
+    const p = identity === me ? room.localParticipant : room.remoteParticipants.get(identity);
+    return p ? pictureOf(p) : null;
   };
 
   // Stick to the bottom when new messages arrive.
@@ -87,7 +91,7 @@ export function ChatPanel({ room, chat, canSend, onClose }: { room: Room; chat: 
           const mine = m.from === me;
           return (
             <div key={m.id} className={`msg ${mine ? 'msg-mine' : ''} ${grouped ? 'msg-grouped' : ''}`}>
-              {!mine && <div className="msg-avatar">{!grouped && <Avatar name={m.fromName} color={colorForSender(m.from)} size={32} />}</div>}
+              {!mine && <div className="msg-avatar">{!grouped && <Avatar name={m.fromName} color={colorForSender(m.from)} picture={pictureForSender(m.from)} size={32} />}</div>}
               <div className="msg-body">
                 {!grouped && (
                   <div className="msg-meta">

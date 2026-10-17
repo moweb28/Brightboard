@@ -1,7 +1,6 @@
-import { createLocalAudioTrack, createLocalVideoTrack, Room, VideoPresets, type LocalAudioTrack, type LocalVideoTrack } from 'livekit-client';
 import { Mic, MicOff, Video, VideoOff, Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { applyBackground } from '../lib/effects';
+import { videoEffectFor } from '../lib/effects';
 import { useSettings, useT } from '../lib/settings';
 import { sounds } from '../lib/sounds';
 import { Avatar, Button, Select } from './ui';
@@ -13,7 +12,7 @@ function useDevices(trigger: unknown) {
   useEffect(() => {
     const load = async () => {
       const [videoinput, audioinput, audiooutput] = await Promise.all(
-        (['videoinput', 'audioinput', 'audiooutput'] as Kind[]).map((k) => Room.getLocalDevices(k, false).catch(() => [])),
+        (['videoinput', 'audioinput', 'audiooutput'] as Kind[]).map((k) => navigator.mediaDevices.enumerateDevices().then((all) => all.filter((d) => d.kind === k), () => [])),
       );
       setDevices({ videoinput, audioinput, audiooutput });
     };
@@ -25,13 +24,13 @@ function useDevices(trigger: unknown) {
 }
 
 /** Live mic level (0–1) written straight to a CSS variable to avoid re-rendering every frame. */
-function useMicMeter(track: LocalAudioTrack | null, el: React.RefObject<HTMLElement | null>) {
+function useMicMeter(track: MediaStreamTrack | null, el: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     if (!track || !el.current) return;
     const ctx = new AudioContext();
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 512;
-    ctx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack])).connect(analyser);
+    ctx.createMediaStreamSource(new MediaStream([track])).connect(analyser);
     const data = new Uint8Array(analyser.fftSize);
     let raf = 0;
     const tick = () => {
@@ -73,17 +72,21 @@ export function DeviceCheck({ name, color, picture, camOn: camProp, micOn: micPr
   const { settings, set } = useSettings();
   const videoRef = useRef<HTMLVideoElement>(null);
   const meterRef = useRef<HTMLDivElement>(null);
-  const [videoTrack, setVideoTrack] = useState<LocalVideoTrack | null>(null);
-  const [audioTrack, setAudioTrack] = useState<LocalAudioTrack | null>(null);
+  const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
+  const [shownTrack, setShownTrack] = useState<MediaStreamTrack | null>(null);
+  const [audioTrack, setAudioTrack] = useState<MediaStreamTrack | null>(null);
   const [camError, setCamError] = useState(false);
   const [micError, setMicError] = useState(false);
   const devices = useDevices(`${!!videoTrack}${!!audioTrack}`);
 
   useEffect(() => {
     if (!camOn) return;
-    let track: LocalVideoTrack | null = null;
+    let track: MediaStreamTrack | null = null;
     let cancelled = false;
-    createLocalVideoTrack({ deviceId: settings.cameraId || undefined, resolution: VideoPresets.h720.resolution }).then(
+    navigator.mediaDevices
+      .getUserMedia({ video: { deviceId: settings.cameraId ? { exact: settings.cameraId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 } } })
+      .then((s) => s.getVideoTracks()[0])
+      .then(
       (tr) => {
         if (cancelled) return tr.stop();
         track = tr;
@@ -99,21 +102,41 @@ export function DeviceCheck({ name, color, picture, camOn: camProp, micOn: micPr
     };
   }, [camOn, settings.cameraId]);
 
+  // The preview shows the camera with the chosen background effect, like others will see it.
   useEffect(() => {
-    if (!videoTrack || !videoRef.current) return;
-    videoTrack.attach(videoRef.current);
-    return () => void videoTrack.detach();
-  }, [videoTrack]);
-
-  useEffect(() => {
-    if (videoTrack) applyBackground(videoTrack, settings.background);
+    if (!videoTrack) return setShownTrack(null);
+    const effect = videoEffectFor(settings.background);
+    if (!effect) return setShownTrack(videoTrack);
+    let processed: MediaStreamTrack | null = null;
+    let cancelled = false;
+    effect(videoTrack).then(
+      (tr) => {
+        if (cancelled) return tr !== videoTrack && tr.stop();
+        processed = tr;
+        setShownTrack(tr);
+      },
+      () => !cancelled && setShownTrack(videoTrack),
+    );
+    return () => {
+      cancelled = true;
+      if (processed && processed !== videoTrack) processed.stop();
+    };
   }, [videoTrack, settings.background]);
 
   useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.srcObject = shownTrack ? new MediaStream([shownTrack]) : null;
+  }, [shownTrack]);
+
+  useEffect(() => {
     if (!micOn) return;
-    let track: LocalAudioTrack | null = null;
+    let track: MediaStreamTrack | null = null;
     let cancelled = false;
-    createLocalAudioTrack({ deviceId: settings.micId || undefined }).then(
+    navigator.mediaDevices
+      .getUserMedia({ audio: { deviceId: settings.micId ? { exact: settings.micId } : undefined } })
+      .then((s) => s.getAudioTracks()[0])
+      .then(
       (tr) => {
         if (cancelled) return tr.stop();
         track = tr;

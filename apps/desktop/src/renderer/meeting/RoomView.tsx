@@ -1,6 +1,6 @@
 import { formatRoomCode, type JoinInfo } from '@classroom/protocol';
-import { useConnectionState, useRoomContext } from '@livekit/components-react';
-import { ConnectionState, RoomEvent, Track, type LocalVideoTrack, type Participant, type TrackPublication } from 'livekit-client';
+import { useConnectionState, useRoomContext } from '../lib/rtc';
+import { ConnectionState, RoomEvent, Track, type Participant, type TrackPublication } from '../lib/rtc';
 import {
   Hand,
   LayoutGrid,
@@ -32,7 +32,7 @@ import { Logo } from '../components/layout';
 import { useToast } from '../components/toast';
 import { Badge, Button, Menu, Modal, SpaceIcon } from '../components/ui';
 import { callService } from '../lib/call';
-import { applyBackground } from '../lib/effects';
+import { videoEffectFor } from '../lib/effects';
 import { formatDuration } from '../lib/format';
 import { useSettings, useT } from '../lib/settings';
 import { sounds } from '../lib/sounds';
@@ -113,10 +113,9 @@ export function RoomView({ join, choices, password }: Props) {
   }, [connection, waiting]);
 
   // Camera background effect follows the setting.
-  const cameraTrack = local.getTrackPublication(Track.Source.Camera)?.videoTrack as LocalVideoTrack | undefined;
   useEffect(() => {
-    if (cameraTrack) applyBackground(cameraTrack, settings.background);
-  }, [cameraTrack, settings.background]);
+    void room.setVideoEffect(videoEffectFor(settings.background));
+  }, [room, settings.background]);
 
   // Guests: tell the host when the app is not in focus.
   useEffect(() => {

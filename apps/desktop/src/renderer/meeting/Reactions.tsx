@@ -1,5 +1,5 @@
 import { REACTION_TOPIC } from '@classroom/protocol';
-import { RoomEvent, type RemoteParticipant, type Room } from 'livekit-client';
+import { RoomEvent, type RemoteParticipant, type Room } from '../lib/rtc';
 import { useCallback, useEffect, useState } from 'react';
 import { nameOf } from './participants';
 

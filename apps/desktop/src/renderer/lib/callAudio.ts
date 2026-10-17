@@ -1,4 +1,4 @@
-import { RoomEvent, Track, type LocalTrackPublication, type Participant, type RemoteTrack, type RemoteTrackPublication, type Room } from 'livekit-client';
+import { RoomEvent, Track, type LocalTrackPublication, type Participant, type RemoteTrack, type RemoteTrackPublication, type Room } from './rtc';
 
 export interface AudioSource {
   /** Stable per publication. */
@@ -28,8 +28,11 @@ export function followCallAudio(room: Room, onAdd: (s: AudioSource) => void, onR
     if (isMic(pub.source)) onAdd({ key: pub.trackSid, track: track.mediaStreamTrack, participant: p });
   };
   const unsubscribed = (_t: RemoteTrack, pub: RemoteTrackPublication) => onRemove(pub.trackSid);
+  // Also fires when the mic is switched to another device, so swap the old track out first.
   const localPublished = (pub: LocalTrackPublication) => {
-    if (isMic(pub.source) && pub.track) onAdd({ key: pub.trackSid, track: pub.track.mediaStreamTrack, participant: local });
+    if (!isMic(pub.source) || !pub.track) return;
+    onRemove(pub.trackSid);
+    onAdd({ key: pub.trackSid, track: pub.track.mediaStreamTrack, participant: local });
   };
   const localUnpublished = (pub: LocalTrackPublication) => onRemove(pub.trackSid);
 

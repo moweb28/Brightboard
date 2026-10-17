@@ -1,4 +1,4 @@
-import { Room, type Room as RoomType } from 'livekit-client';
+import { Room, type Room as RoomType } from '../lib/rtc';
 import { useEffect, useState } from 'react';
 import { Modal, Select, Toggle } from '../components/ui';
 import { BACKGROUND_IMAGES, backgroundsSupported } from '../lib/effects';

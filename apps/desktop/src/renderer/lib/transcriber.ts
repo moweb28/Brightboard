@@ -1,5 +1,5 @@
 import { isLikelyHallucination, SpeechChunker, type TranscriptLine } from '@classroom/protocol';
-import type { Room } from 'livekit-client';
+import type { Room } from './rtc';
 import { followCallAudio } from './callAudio';
 import type { WorkerIn, WorkerOut } from './transcribe.worker';
 

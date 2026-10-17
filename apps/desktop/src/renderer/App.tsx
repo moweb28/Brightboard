@@ -4,6 +4,7 @@ import { Spinner } from './components/ui';
 import { NavContext, type Route } from './lib/nav';
 import { SettingsProvider } from './lib/settings';
 import { StoreProvider, useStore } from './lib/store';
+import { useLivePoll } from './lib/useLivePoll';
 import { Meeting } from './meeting/Meeting';
 import { Home } from './screens/Home';
 import { JoinPage } from './screens/Join';
@@ -26,6 +27,8 @@ export function App() {
 function Router() {
   const { data } = useStore();
   const [route, setRoute] = useState<Route>({ name: 'home' });
+  // Your own call's live state comes from the call itself, not from polling.
+  useLivePoll(route.name === 'meeting' ? route.join.roomName : null);
 
   // brightboard://join/CODE links open the join screen with the code filled in (never interrupting a call).
   useEffect(() => {

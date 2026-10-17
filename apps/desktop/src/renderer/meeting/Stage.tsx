@@ -1,13 +1,13 @@
 import type { ModerateAction, RoomMeta } from '@classroom/protocol';
-import { isTrackReference, useIsSpeaking, useTracks, VideoTrack, type TrackReferenceOrPlaceholder } from '@livekit/components-react';
-import { Track, type Room } from 'livekit-client';
+import { isTrackReference, useIsSpeaking, useTracks, VideoTrack, type TrackReferenceOrPlaceholder } from '../lib/rtc';
+import { Track, type Room } from '../lib/rtc';
 import { Crown, EyeOff, Loader2, MicOff, MonitorUp, MoreHorizontal, MousePointer2, Pin, Star } from 'lucide-react';
 import { Avatar, IconButton, Menu } from '../components/ui';
 import { useSettings, useT } from '../lib/settings';
 import { participantActions } from './moderation';
 import { RemoteSurface } from './RemoteSurface';
 import type { Remote } from './useRemote';
-import { colorOf, handUp, isAway, isHost, isWaiting, nameOf } from './participants';
+import { colorOf, handUp, isAway, isHost, isWaiting, nameOf, pictureOf } from './participants';
 
 export type Layout = 'grid' | 'speaker';
 
@@ -52,7 +52,7 @@ export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate,
     cameraOf(pinned) ?? cameraOf(meta.spotlight) ?? shares[0] ?? (layout === 'speaker' && cameras.length > 1 ? (cameraOf(speaker?.identity ?? null) ?? cameras.find((r) => !r.participant.isLocal)) : undefined);
 
   const tile = (r: TrackReferenceOrPlaceholder, size: 'grid' | 'focus' | 'strip') => (
-    <Tile key={keyOf(r)} trackRef={r} size={size} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} remote={remote} />
+    <Tile key={keyOf(r)} trackRef={r} size={size} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} remote={remote} manyTiles={cameras.length > 4} />
   );
 
   if (board) {
@@ -90,9 +90,11 @@ interface TileProps {
   setPinned: (id: string | null) => void;
   moderate: (a: ModerateAction) => void;
   remote: Remote;
+  /** More than four cameras on screen: ask for the small video to save bandwidth. */
+  manyTiles: boolean;
 }
 
-function Tile({ trackRef, size, meta, amHost, pinned, setPinned, moderate, remote }: TileProps) {
+function Tile({ trackRef, size, meta, amHost, pinned, setPinned, moderate, remote, manyTiles }: TileProps) {
   const t = useT();
   const { settings } = useSettings();
   const p = trackRef.participant;
@@ -110,10 +112,10 @@ function Tile({ trackRef, size, meta, amHost, pinned, setPinned, moderate, remot
       onDoubleClick={() => !isShare && setPinned(pinned === p.identity ? null : p.identity)}
     >
       {hasVideo ? (
-        <VideoTrack trackRef={trackRef} className={`tile-video ${p.isLocal && !isShare && settings.mirror ? 'mirror' : ''} ${isShare ? 'contain' : ''}`} />
+        <VideoTrack trackRef={trackRef} quality={size === 'focus' || (size === 'grid' && !manyTiles) ? 'high' : 'low'} className={`tile-video ${p.isLocal && !isShare && settings.mirror ? 'mirror' : ''} ${isShare ? 'contain' : ''}`} />
       ) : (
         <div className="tile-avatar">
-          <Avatar name={name} color={colorOf(p)} size={avatarSize} />
+          <Avatar name={name} color={colorOf(p)} picture={pictureOf(p)} size={avatarSize} />
         </div>
       )}
 

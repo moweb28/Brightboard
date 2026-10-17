@@ -1,5 +1,5 @@
 import { applyChatPacket, CHAT_TOPIC, MAX_CHAT_LENGTH, type ChatMessage, type ChatPacket, type ChatState } from '@classroom/protocol';
-import { RoomEvent, type Participant, type RemoteParticipant, type Room } from 'livekit-client';
+import { RoomEvent, type Participant, type RemoteParticipant, type Room } from '../lib/rtc';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isHost, isWaiting, nameOf } from './participants';
 

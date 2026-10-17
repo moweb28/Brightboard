@@ -1,7 +1,7 @@
 import { BOARD_TOPIC, VersionTracker, type BoardPacket } from '@classroom/protocol';
 import { CaptureUpdateAction, reconcileElements, restoreElements } from '@excalidraw/excalidraw';
 import type { BinaryFileData, BinaryFiles, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-import { RoomEvent, type Participant, type Room } from 'livekit-client';
+import { RoomEvent, type Participant, type Room } from '../../lib/rtc';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { isHost, isWaiting } from '../participants';
 

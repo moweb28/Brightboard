@@ -1,5 +1,5 @@
 import { REMOTE_TOPIC, type RemoteInput, type RemotePacket } from '@classroom/protocol';
-import { RoomEvent, Track, type Participant, type RemoteParticipant, type Room, type TrackPublication } from 'livekit-client';
+import { RoomEvent, Track, type Participant, type RemoteParticipant, type Room, type TrackPublication } from '../lib/rtc';
 import { MousePointer2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../components/toast';

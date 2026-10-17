@@ -1,5 +1,5 @@
 import { formatTranscript, type JoinInfo, type ModerateAction, type TranscriptLine } from '@classroom/protocol';
-import { RoomEvent, type Participant, type Room } from 'livekit-client';
+import { RoomEvent, type Participant, type Room } from '../lib/rtc';
 import { FileText } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../components/toast';
@@ -97,7 +97,7 @@ export function useTranscript(room: Room, join: JoinInfo, moderate: (a: Moderate
       const src = ctx.createBufferSource();
       src.buffer = buffer;
       src.connect(dest);
-      const { Track } = await import('livekit-client');
+      const { Track } = await import('../lib/rtc');
       await room.localParticipant.publishTrack(dest.stream.getAudioTracks()[0], { source: Track.Source.Microphone, name: 'test-clip' });
       setTimeout(() => src.start(), 500);
       return buffer.duration;

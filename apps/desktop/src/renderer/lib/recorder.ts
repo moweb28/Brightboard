@@ -1,4 +1,4 @@
-import type { Room } from 'livekit-client';
+import type { Room } from './rtc';
 import { followCallAudio } from './callAudio';
 
 const MIME_TYPES = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];

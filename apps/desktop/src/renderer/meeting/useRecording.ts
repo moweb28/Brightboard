@@ -1,5 +1,5 @@
 import type { JoinInfo, ModerateAction } from '@classroom/protocol';
-import { ConnectionState, type Room } from 'livekit-client';
+import { ConnectionState, type Room } from '../lib/rtc';
 import { CircleDot, FolderOpen } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../components/toast';

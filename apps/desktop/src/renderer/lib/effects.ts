@@ -1,5 +1,4 @@
 import { BackgroundBlur, supportsBackgroundProcessors, VirtualBackground } from '@livekit/track-processors';
-import type { LocalVideoTrack } from 'livekit-client';
 import calm from '../assets/bg-calm.jpg';
 import classroom from '../assets/bg-classroom.jpg';
 import library from '../assets/bg-library.jpg';
@@ -15,16 +14,27 @@ export const backgroundsSupported = () => {
   }
 };
 
-/** Applies (or removes) a camera background effect. Failures leave the plain camera. */
-export async function applyBackground(track: LocalVideoTrack, bg: Background) {
-  try {
-    if (bg === 'none' || !backgroundsSupported()) {
-      if (track.getProcessor()) await track.stopProcessor();
-      return;
-    }
+export type VideoEffect = (track: MediaStreamTrack) => Promise<MediaStreamTrack>;
+
+/**
+ * The camera background effect for a setting (blur or a picture), or null for none.
+ * It returns a processed copy of the camera; stopping that copy also shuts the effect down.
+ */
+export function videoEffectFor(bg: Background): VideoEffect | null {
+  if (bg === 'none' || !backgroundsSupported()) return null;
+  return async (track) => {
     const processor = bg === 'blur' ? BackgroundBlur(14) : VirtualBackground(BACKGROUND_IMAGES[bg]!);
-    await track.setProcessor(processor);
-  } catch (e) {
-    console.warn('background effect failed', e);
-  }
+    await processor.init({ kind: 'video', track } as never);
+    const processed = processor.processedTrack;
+    if (!processed) {
+      void processor.destroy();
+      return track;
+    }
+    const stop = processed.stop.bind(processed);
+    processed.stop = () => {
+      stop();
+      void processor.destroy().catch(() => undefined);
+    };
+    return processed;
+  };
 }

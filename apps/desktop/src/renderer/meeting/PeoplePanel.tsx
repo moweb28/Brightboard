@@ -1,12 +1,12 @@
 import type { ModerateAction, RoomMeta } from '@classroom/protocol';
-import { Track, type Participant, type Room } from 'livekit-client';
+import { Track, type Participant, type Room } from '../lib/rtc';
 import { DoorOpen, EyeOff, Hand, Lock, LockOpen, MessageSquare, MessageSquareOff, Mic, MicOff, MonitorUp, MoreVertical, Search, UserCheck, Video, VideoOff, X } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, Badge, Button, IconButton, Menu } from '../components/ui';
 import { callService } from '../lib/call';
 import { useT } from '../lib/settings';
 import { participantActions } from './moderation';
-import { allParticipants, colorOf, handUp, isAway, isHost, isWaiting, nameOf } from './participants';
+import { allParticipants, colorOf, handUp, isAway, isHost, isWaiting, nameOf, pictureOf } from './participants';
 
 interface Props {
   room: Room;
@@ -73,7 +73,7 @@ export function PeoplePanel({ room, spaceId, meta, amHost, pinned, setPinned, mo
             </div>
             {waiting.map((p) => (
               <div className="person" key={p.identity}>
-                <Avatar name={nameOf(p)} color={colorOf(p)} size={36} />
+                <Avatar name={nameOf(p)} color={colorOf(p)} picture={pictureOf(p)} size={36} />
                 <span className="person-name">{nameOf(p)}</span>
                 <Button size="sm" variant="secondary" onClick={() => moderate({ action: 'admit', identity: p.identity })}>
                   {t.meeting.admit}
@@ -122,7 +122,7 @@ function PersonRow({ p, actions }: { p: Participant; actions: ReturnType<typeof 
   const sharing = !!p.getTrackPublication(Track.Source.ScreenShare);
   return (
     <div className="person">
-      <Avatar name={nameOf(p)} color={colorOf(p)} size={36} />
+      <Avatar name={nameOf(p)} color={colorOf(p)} picture={pictureOf(p)} size={36} />
       <span className="person-name">
         {nameOf(p)}
         {p.isLocal && <span className="muted"> ({t.common.you})</span>}

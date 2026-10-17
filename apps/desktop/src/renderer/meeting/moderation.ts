@@ -1,5 +1,5 @@
 import type { ModerateAction, RoomMeta } from '@classroom/protocol';
-import { Track, type Participant } from 'livekit-client';
+import { Track, type Participant } from '../lib/rtc';
 import { MicOff, MonitorOff, MonitorUp, Pin, PinOff, Star, StarOff, UserMinus, VideoOff } from 'lucide-react';
 import { useCallback, useRef } from 'react';
 import { useToast } from '../components/toast';
