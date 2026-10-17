@@ -1,7 +1,7 @@
 import { measureElement, resizeFor, roundMeasure, type MeasureKey, type MeasureRow } from '@classroom/protocol';
 import { CaptureUpdateAction, newElementWith } from '@excalidraw/excalidraw';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-import { Grid3x3, Ruler, X } from 'lucide-react';
+import { Grid3x3, Ruler, Tag, X } from 'lucide-react';
 import { useState } from 'react';
 import type { Dict } from '../../lib/i18n';
 import { MEASURE_UNITS, type MeasureUnit } from '../../lib/settings';
@@ -17,6 +17,8 @@ interface Props {
   unit: MeasureUnit;
   scale: number;
   grid: boolean;
+  labels: boolean;
+  onToggleLabels(): void;
   onUnit(u: MeasureUnit): void;
   onScale(px: number): void;
   onToggleGrid(): void;
@@ -26,7 +28,7 @@ interface Props {
 const fmt = (n: number) => String(roundMeasure(n));
 
 /** Side panel: lengths, area and perimeter of the selected shapes, in the chosen unit. */
-export function MeasurePanel({ t, api, tick, unit, scale, grid, onUnit, onScale, onToggleGrid, onClose }: Props) {
+export function MeasurePanel({ t, api, tick, unit, scale, grid, labels, onToggleLabels, onUnit, onScale, onToggleGrid, onClose }: Props) {
   void tick; // re-render trigger
   const m = t.board.measure;
   const selected = api.getAppState().selectedElementIds;
@@ -84,6 +86,9 @@ export function MeasurePanel({ t, api, tick, unit, scale, grid, onUnit, onScale,
         </label>
         <button className={`measure-grid ${grid ? 'is-on' : ''}`} onClick={onToggleGrid} aria-pressed={grid}>
           <Grid3x3 size={15} /> {grid ? m.gridOn(unitLabel) : m.gridOff}
+        </button>
+        <button className={`measure-grid ${labels ? 'is-on' : ''}`} onClick={onToggleLabels} aria-pressed={labels}>
+          <Tag size={15} /> {m.labels}
         </button>
       </div>
 

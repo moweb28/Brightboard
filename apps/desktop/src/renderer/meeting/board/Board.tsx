@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings, useT } from '../../lib/settings';
 import { applyDesign, MoreMenu, PenBar, TextBar } from './BoardTools';
 import { MeasurePanel } from './MeasurePanel';
+import { SizeLabels } from './SizeLabels';
 import { addIdea, insertMindMap, removeIdea, selectedNode } from './mindmapOps';
 import { SmartPen } from './smartPen';
 import type { BoardSync } from './useBoardSync';
@@ -56,6 +57,8 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
   const [measureOpen, setMeasureOpen] = useState(false);
   const measureOpenRef = useRef(false);
   measureOpenRef.current = measureOpen;
+  const labelsRef = useRef(settings.measureLabels);
+  labelsRef.current = settings.measureLabels;
   const [measureTick, setMeasureTick] = useState(0);
   const tickPending = useRef(false);
   const [gridOn, setGridOn] = useState(false);
@@ -83,7 +86,11 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
   };
 
   // Start from whatever was drawn earlier in this call.
-  const initialData = useMemo(() => ({ elements: sync.store.current.elements, files: sync.store.current.files, scrollToContent: true }), [sync]);
+  // New shapes start with clean single lines (the "sketchy" style draws every edge twice), better for geometry.
+  const initialData = useMemo(
+    () => ({ elements: sync.store.current.elements, files: sync.store.current.files, scrollToContent: true, appState: { currentItemRoughness: 0 } }),
+    [sync],
+  );
 
   useEffect(
     () => () => {
@@ -172,7 +179,7 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
             gridRef.current = appState.gridModeEnabled;
             setGridOn(appState.gridModeEnabled);
           }
-          if (measureOpenRef.current && !tickPending.current) {
+          if ((measureOpenRef.current || labelsRef.current) && !tickPending.current) {
             tickPending.current = true;
             requestAnimationFrame(() => {
               tickPending.current = false;
@@ -208,6 +215,8 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
               onExport={() => void exportPng()}
               grid={gridOn}
               onToggleGrid={() => setGrid(!gridOn)}
+              labels={settings.measureLabels}
+              onToggleLabels={() => set('measureLabels', !settings.measureLabels)}
             />
             {amHost && (
               <button className={`board-btn ${locked ? 'is-active' : ''}`} onClick={onToggleLock} title={locked ? t.board.unlock : t.board.lock}>
@@ -236,6 +245,7 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
         />
       )}
       {!viewOnly && tool === 'text' && api.current && <TextBar t={t} api={api.current} design={design} />}
+      {settings.measureLabels && api.current && <SizeLabels api={api.current} tick={measureTick} scale={settings.measureScale} unit={t.board.measure.units[settings.measureUnit]} />}
       {measureOpen && api.current && (
         <MeasurePanel
           t={t}
@@ -244,6 +254,8 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
           unit={settings.measureUnit}
           scale={settings.measureScale}
           grid={gridOn}
+          labels={settings.measureLabels}
+          onToggleLabels={() => set('measureLabels', !settings.measureLabels)}
           onUnit={(u) => set('measureUnit', u)}
           onScale={changeScale}
           onToggleGrid={() => setGrid(!gridOn)}

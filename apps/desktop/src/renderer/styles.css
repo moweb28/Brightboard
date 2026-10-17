@@ -857,3 +857,7 @@ button { font: inherit; color: inherit; }
 .measure-edit input:focus { outline: 2px solid var(--primary); outline-offset: 0; }
 .pop-row.is-on { color: var(--primary); }
 .pop-check-icon { margin-inline-start: auto; }
+
+/* Lengths written on shapes (live; pointer events pass through to the board). */
+.size-labels { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+.size-label { position: absolute; transform: translate(-50%, -50%); padding: 1px 6px; border-radius: 5px; background: rgba(91, 91, 214, 0.92); color: #fff; font: 600 11.5px/1.5 'Rubik Variable', 'Segoe UI', sans-serif; white-space: nowrap; font-variant-numeric: tabular-nums; }

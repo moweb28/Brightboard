@@ -40,6 +40,8 @@ export interface Settings {
   /** Whiteboard measuring: the unit, and how many board pixels make one unit (one grid square). */
   measureUnit: MeasureUnit;
   measureScale: number;
+  /** Lengths written on the shapes themselves (with or without the grid). */
+  measureLabels: boolean;
   /** Transcript: who is transcribed and which speech model. */
   transcriptMode: 'me' | 'everyone';
   transcriptModel: 'standard' | 'accurate';
@@ -75,6 +77,7 @@ const DEFAULTS: Settings = {
   videoStrip: 'side',
   measureUnit: 'cm',
   measureScale: 20,
+  measureLabels: true,
   transcriptMode: 'me',
   transcriptModel: 'standard',
 };
