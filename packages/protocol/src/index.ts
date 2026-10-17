@@ -151,4 +151,5 @@ export type ModerateAction =
 export * from './board/sync';
 export * from './board/mindmap';
 export * from './board/shapes';
+export * from './board/measure';
 export * from './transcript';

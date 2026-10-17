@@ -1,9 +1,10 @@
 import type { ModerateAction, RoomMeta } from '@classroom/protocol';
 import { isTrackReference, useIsSpeaking, useTracks, VideoTrack, type TrackReferenceOrPlaceholder } from '../lib/rtc';
-import { Track, type Room } from '../lib/rtc';
-import { Crown, EyeOff, Loader2, MicOff, MonitorUp, MoreHorizontal, MousePointer2, Pin, Star } from 'lucide-react';
+import { RoomEvent, Track, type Participant, type Room } from '../lib/rtc';
+import { Crown, EyeOff, Loader2, MicOff, MonitorUp, MoreHorizontal, MousePointer2, Pin, Star, Volume2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Avatar, IconButton, Menu } from '../components/ui';
-import { useSettings, useT } from '../lib/settings';
+import { useSettings, useT, type VideoStrip } from '../lib/settings';
 import { participantActions } from './moderation';
 import { RemoteSurface } from './RemoteSurface';
 import type { Remote } from './useRemote';
@@ -15,6 +16,8 @@ interface Props {
   room: Room;
   meta: RoomMeta;
   layout: Layout;
+  /** Where the other videos go next to a board, screen or speaker. */
+  strip: VideoStrip;
   amHost: boolean;
   pinned: string | null;
   setPinned: (id: string | null) => void;
@@ -34,7 +37,7 @@ function gridColumns(n: number) {
   return 5;
 }
 
-export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate, remote, board }: Props) {
+export function Stage({ room, meta, layout, strip, amHost, pinned, setPinned, moderate, remote, board }: Props) {
   const refs = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -55,28 +58,45 @@ export function Stage({ room, meta, layout, amHost, pinned, setPinned, moderate,
     <Tile key={keyOf(r)} trackRef={r} size={size} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} remote={remote} manyTiles={cameras.length > 4} />
   );
 
-  if (board) {
+  // A board, screen or speaker in the middle; the other videos beside it, below it, or hidden.
+  const focused = (main: React.ReactNode, others: TrackReferenceOrPlaceholder[]) => {
+    const showStrip = strip !== 'hidden' && others.length > 0;
     return (
-      <div className="stage stage-focus">
-        <div className="stage-main">{board}</div>
-        <div className="filmstrip">{[...shares, ...cameras].map((r) => tile(r, 'strip'))}</div>
+      <div className={`stage stage-focus strip-${showStrip ? strip : 'hidden'}`}>
+        <div className="stage-main">
+          {main}
+          {strip === 'hidden' && <TalkingChip room={room} />}
+        </div>
+        {showStrip && <div className="filmstrip">{others.map((r) => tile(r, 'strip'))}</div>}
       </div>
     );
-  }
+  };
 
-  if (focus) {
-    const others = [...shares.filter((s) => s !== focus), ...cameras.filter((c) => c !== focus)];
-    return (
-      <div className="stage stage-focus">
-        <div className="stage-main">{tile(focus, 'focus')}</div>
-        {others.length > 0 && <div className="filmstrip">{others.map((r) => tile(r, 'strip'))}</div>}
-      </div>
-    );
-  }
+  if (board) return focused(board, [...shares, ...cameras]);
+  if (focus) return focused(tile(focus, 'focus'), [...shares.filter((s) => s !== focus), ...cameras.filter((c) => c !== focus)]);
 
   return (
     <div className="stage stage-grid" style={{ '--cols': gridColumns(cameras.length), '--rows': Math.ceil(cameras.length / gridColumns(cameras.length)) } as React.CSSProperties}>
       {cameras.map((r) => tile(r, 'grid'))}
+    </div>
+  );
+}
+
+/** With the videos hidden: who's talking right now, in a small chip over the board or screen. */
+function TalkingChip({ room }: { room: Room }) {
+  const t = useT();
+  const [names, setNames] = useState<string[]>([]);
+  useEffect(() => {
+    const update = (speakers: Participant[]) => setNames(speakers.slice(0, 2).map((p) => (p.isLocal ? t.common.you : nameOf(p))));
+    update(room.activeSpeakers);
+    room.on(RoomEvent.ActiveSpeakersChanged, update);
+    return () => void room.off(RoomEvent.ActiveSpeakersChanged, update);
+  }, [room, t]);
+  if (!names.length) return null;
+  return (
+    <div className="talking-chip" aria-live="polite">
+      <Volume2 size={15} />
+      {t.meeting.talking(names.join(', '))}
     </div>
   );
 }

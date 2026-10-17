@@ -15,6 +15,12 @@ The installer isn't code-signed (certificates cost money), so Windows may say *"
 2. **Start now** for an instant space, or **New space** to pick Hangout / Meeting / Class / Event, with an optional schedule and password.
 3. Click **Invite** and share the link or code. People with the app join in one click; others get a download page.
 
+## Layout
+
+The **Layout** button in the dock picks the main view (everyone the same size, or whoever is talking big) and where
+the other videos go next to a board, screen or speaker: on the side, at the bottom, or hidden with a small
+"… talking" label. It's just for you.
+
 ## Whiteboard
 
 The admin opens it from the dock; it takes the stage for everyone. Text, pictures (paste/drag/upload), shapes,
@@ -27,6 +33,9 @@ Picking the board's **pen** shows a pen bar (pen, marker, highlighter, chalk, co
 **Pens & text**: pen, marker, highlighter and chalk, with colors and thickness; seven fonts (hand-drawn, normal,
 headline, playful, clean, sketchy, code) up to 3XL. The admin picks the **board look** for everyone: whiteboard,
 blackboard, chalkboard, paper, grid paper or blueprint (dark boards switch to light ink).
+**Measure** (ruler button) opens a side panel with the selected shape's sizes in cm, m, inches or grid squares:
+sides, width and height, radius and diameter, line length, perimeter, area and a triangle's angles. Type a width,
+side, radius or length to resize the shape exactly. **Grid** (in the panel or More) shows squares of one unit.
 **Snip** grabs part of your screen (another app, a website, a PDF) and drops it on the board: Brightboard steps
 aside, you drag a rectangle, and the picture appears for everyone (Esc or right-click cancels).
 The admin can lock it so only they draw. Late joiners get the full board.

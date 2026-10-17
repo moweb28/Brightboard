@@ -1,6 +1,6 @@
 import { BOARD_DESIGNS, type BoardDesign } from '@classroom/protocol';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-import { Check, ChevronDown, Download, GitBranch, Highlighter, MoreHorizontal, Pen, PenLine, PenTool, Shapes, Type } from 'lucide-react';
+import { Check, ChevronDown, Download, GitBranch, Grid3x3, Highlighter, MoreHorizontal, Pen, PenLine, PenTool, Shapes, Type } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Dict } from '../../lib/i18n';
 
@@ -233,10 +233,13 @@ interface MoreProps {
   onDesign(d: BoardDesign): void;
   onMindMap(): void;
   onExport(): void;
+  /** Grid lines on this board (just for you); one square is one measuring unit. */
+  grid: boolean;
+  onToggleGrid(): void;
 }
 
 /** Mind map, save as image, and (admin) the board look. */
-export function MoreMenu({ t, amHost, canDraw, design, onDesign, onMindMap, onExport }: MoreProps) {
+export function MoreMenu({ t, amHost, canDraw, design, onDesign, onMindMap, onExport, grid, onToggleGrid }: MoreProps) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
   const run = (fn: () => void) => () => {
@@ -255,6 +258,10 @@ export function MoreMenu({ t, amHost, canDraw, design, onDesign, onMindMap, onEx
               <GitBranch size={16} /> {t.board.mindMap}
             </button>
           )}
+          <button className={`pop-row ${grid ? 'is-on' : ''}`} onClick={run(onToggleGrid)} aria-pressed={grid}>
+            <Grid3x3 size={16} /> {t.board.measure.grid}
+            {grid && <Check size={16} className="pop-check-icon" />}
+          </button>
           <button className="pop-row" onClick={run(onExport)}>
             <Download size={16} /> {t.board.exportPng}
           </button>

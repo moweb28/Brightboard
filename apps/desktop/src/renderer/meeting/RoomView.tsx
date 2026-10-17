@@ -3,7 +3,6 @@ import { useConnectionState, useRoomContext } from '../lib/rtc';
 import { ConnectionState, RoomEvent, Track, type Participant, type TrackPublication } from '../lib/rtc';
 import {
   Hand,
-  LayoutGrid,
   Lock,
   LogOut,
   MessageSquare,
@@ -19,7 +18,6 @@ import {
   Send,
   Settings as SettingsIcon,
   SmilePlus,
-  SquareUserRound,
   Users,
   Video,
   VideoOff,
@@ -44,6 +42,7 @@ import { PeoplePanel } from './PeoplePanel';
 import type { JoinChoices } from './PreJoin';
 import { QUICK_REACTIONS, ReactionLayer, useReactions } from './Reactions';
 import { ScreenPicker } from './ScreenPicker';
+import { LayoutMenu } from './LayoutMenu';
 import { Stage, type Layout } from './Stage';
 import { useChat } from './useChat';
 import { useRecording } from './useRecording';
@@ -284,7 +283,7 @@ export function RoomView({ join, choices, password }: Props) {
 
       <div className="room-body">
         <div className="room-stage">
-          <Stage room={room} meta={meta} layout={layout} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate}
+          <Stage room={room} meta={meta} layout={layout} strip={settings.videoStrip} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate}
             remote={remote}
             board={
               meta.boardOpen ? (
@@ -323,7 +322,7 @@ export function RoomView({ join, choices, password }: Props) {
           <Ctrl icon={MessageSquare} label={t.meeting.chat} active={panel === 'chat'} badge={chat.unread} onClick={() => setPanel(panel === 'chat' ? null : 'chat')} />
           <Ctrl icon={Users} label={t.meeting.people} active={panel === 'people'} badge={guestsWaiting} count={people} onClick={() => setPanel(panel === 'people' ? null : 'people')} />
           <span className="dock-sep" aria-hidden />
-          <Ctrl icon={layout === 'grid' ? SquareUserRound : LayoutGrid} label={layout === 'grid' ? t.meeting.speaker : t.meeting.grid} onClick={() => setLayout(layout === 'grid' ? 'speaker' : 'grid')} />
+          <LayoutMenu layout={layout} setLayout={setLayout} />
           {tx.available && (
             <Ctrl icon={FileText} label={t.transcript.title} active={panel === 'transcript' || tx.running} onClick={() => setPanel(panel === 'transcript' ? null : 'transcript')} />
           )}

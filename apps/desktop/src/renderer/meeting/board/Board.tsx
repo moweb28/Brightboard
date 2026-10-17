@@ -2,10 +2,11 @@ import { convertToExcalidrawElements, Excalidraw, exportToBlob } from '@excalidr
 import '@excalidraw/excalidraw/index.css';
 import type { BinaryFileData, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import type { BoardDesign } from '@classroom/protocol';
-import { Loader2, Lock, LockOpen, Maximize2, Minimize2, Scissors, X } from 'lucide-react';
+import { Loader2, Lock, LockOpen, Maximize2, Minimize2, Ruler, Scissors, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings, useT } from '../../lib/settings';
 import { applyDesign, MoreMenu, PenBar, TextBar } from './BoardTools';
+import { MeasurePanel } from './MeasurePanel';
 import { addIdea, insertMindMap, removeIdea, selectedNode } from './mindmapOps';
 import { SmartPen } from './smartPen';
 import type { BoardSync } from './useBoardSync';
@@ -49,6 +50,21 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
     else void boardRef.current?.requestFullscreen().catch(() => undefined);
+  };
+
+  // Measuring: a side panel with lengths, area and perimeter, kept live while it's open.
+  const [measureOpen, setMeasureOpen] = useState(false);
+  const measureOpenRef = useRef(false);
+  measureOpenRef.current = measureOpen;
+  const [measureTick, setMeasureTick] = useState(0);
+  const tickPending = useRef(false);
+  const [gridOn, setGridOn] = useState(false);
+  const gridRef = useRef(false);
+  // One grid square is one measuring unit.
+  const setGrid = (on: boolean, size = settings.measureScale) => api.current?.updateScene({ appState: { gridModeEnabled: on, gridSize: size, gridStep: 5 } as never });
+  const changeScale = (px: number) => {
+    set('measureScale', px);
+    if (gridRef.current) setGrid(true, px);
   };
 
   // Picking the pen or text tool shows its style bar under the toolbar.
@@ -152,6 +168,17 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
             toolRef.current = active;
             setTool(active);
           }
+          if (appState.gridModeEnabled !== gridRef.current) {
+            gridRef.current = appState.gridModeEnabled;
+            setGridOn(appState.gridModeEnabled);
+          }
+          if (measureOpenRef.current && !tickPending.current) {
+            tickPending.current = true;
+            requestAnimationFrame(() => {
+              tickPending.current = false;
+              setMeasureTick((n) => n + 1);
+            });
+          }
         }}
         renderTopRightUI={() => (
           <div className="board-actions">
@@ -165,6 +192,9 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
                 <Scissors size={16} /> <span className="board-btn-label">{t.board.snip}</span>
               </button>
             )}
+            <button className={`board-btn ${measureOpen ? 'is-active' : ''}`} onClick={() => setMeasureOpen((o) => !o)} title={t.board.measure.buttonTitle} aria-label={t.board.measure.title} aria-pressed={measureOpen}>
+              <Ruler size={16} />
+            </button>
             <button className={`board-btn ${fullscreen ? 'is-active' : ''}`} onClick={toggleFullscreen} title={fullscreen ? t.board.exitFullscreen : t.board.fullscreen} aria-label={fullscreen ? t.board.exitFullscreen : t.board.fullscreen}>
               {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
@@ -176,6 +206,8 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
               onDesign={pickDesign}
               onMindMap={() => api.current && insertMindMap(api.current, t.board.rootText)}
               onExport={() => void exportPng()}
+              grid={gridOn}
+              onToggleGrid={() => setGrid(!gridOn)}
             />
             {amHost && (
               <button className={`board-btn ${locked ? 'is-active' : ''}`} onClick={onToggleLock} title={locked ? t.board.unlock : t.board.lock}>
@@ -204,6 +236,20 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
         />
       )}
       {!viewOnly && tool === 'text' && api.current && <TextBar t={t} api={api.current} design={design} />}
+      {measureOpen && api.current && (
+        <MeasurePanel
+          t={t}
+          api={api.current}
+          tick={measureTick}
+          unit={settings.measureUnit}
+          scale={settings.measureScale}
+          grid={gridOn}
+          onUnit={(u) => set('measureUnit', u)}
+          onScale={changeScale}
+          onToggleGrid={() => setGrid(!gridOn)}
+          onClose={() => setMeasureOpen(false)}
+        />
+      )}
       {viewOnly && <div className="board-note">{t.board.lockedNote}</div>}
     </div>
   );

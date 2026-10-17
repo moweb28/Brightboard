@@ -35,6 +35,11 @@ export interface Settings {
   boardDesign: BoardDesign;
   /** How names show on video tiles (just for you). */
   nameTags: NameTagStyle;
+  /** Where the other videos go when something is in focus (board, screen, speaker): just for you. */
+  videoStrip: VideoStrip;
+  /** Whiteboard measuring: the unit, and how many board pixels make one unit (one grid square). */
+  measureUnit: MeasureUnit;
+  measureScale: number;
   /** Transcript: who is transcribed and which speech model. */
   transcriptMode: 'me' | 'everyone';
   transcriptModel: 'standard' | 'accurate';
@@ -42,6 +47,10 @@ export interface Settings {
 
 export const NAME_TAG_STYLES = ['tag', 'bar', 'big', 'minimal', 'hidden'] as const;
 export type NameTagStyle = (typeof NAME_TAG_STYLES)[number];
+export const VIDEO_STRIPS = ['side', 'bottom', 'hidden'] as const;
+export type VideoStrip = (typeof VIDEO_STRIPS)[number];
+export const MEASURE_UNITS = ['cm', 'm', 'in', 'units'] as const;
+export type MeasureUnit = (typeof MEASURE_UNITS)[number];
 
 const DEFAULTS: Settings = {
   theme: 'light',
@@ -63,6 +72,9 @@ const DEFAULTS: Settings = {
   boardHandwriting: false,
   boardDesign: 'auto',
   nameTags: 'tag',
+  videoStrip: 'side',
+  measureUnit: 'cm',
+  measureScale: 20,
   transcriptMode: 'me',
   transcriptModel: 'standard',
 };

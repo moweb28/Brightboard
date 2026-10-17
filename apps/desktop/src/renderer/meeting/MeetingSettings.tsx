@@ -1,6 +1,5 @@
 import { Room, type Room as RoomType } from '../lib/rtc';
 import { useEffect, useState } from 'react';
-import { NameTagPicker } from '../components/NameTagPicker';
 import { Modal, Select, Toggle } from '../components/ui';
 import { BACKGROUND_IMAGES, backgroundsSupported } from '../lib/effects';
 import { BACKGROUNDS, useSettings, useT } from '../lib/settings';
@@ -48,7 +47,6 @@ export function MeetingSettings({ room, onClose }: { room: RoomType; onClose: ()
           </div>
         )}
         <Toggle label={t.settings.mirrorVideo} description={t.settings.mirrorVideoDesc} checked={settings.mirror} onChange={(v) => set('mirror', v)} />
-        <NameTagPicker />
       </div>
     </Modal>
   );
