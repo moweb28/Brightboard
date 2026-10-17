@@ -54,6 +54,8 @@ export type ClientMessage =
   | { t: 'hello'; name: string; color: string; picture: string | null; password?: string; admin?: AdminHello }
   /** Before the camera check: is the room open, and is this password right? Doesn't join. */
   | { t: 'check'; password?: string }
+  /** Ties a new space's code to its admin key, so nobody else can ever open it as admin. Doesn't join. */
+  | { t: 'claim'; key: string }
   | { t: 'tracks'; tracks: PeerTracks }
   | { t: 'state'; state: Partial<PeerState> }
   /** Relay `data` on `topic` to everyone (or only `to`). */
@@ -71,6 +73,7 @@ export type ByeReason = 'ended' | 'removed' | 'replaced';
 
 export type ServerMessage =
   | { t: 'checked'; space: SharedSpaceInfo; needsPassword: boolean }
+  | { t: 'claimed'; ok: boolean }
   | { t: 'welcome'; you: PeerInfo; ticket: string | null; room: RoomMeta; space: SharedSpaceInfo; peers: PeerInfo[] }
   | { t: 'peer'; peer: PeerInfo }
   | { t: 'left'; id: string }
@@ -85,3 +88,7 @@ export type ServerMessage =
 export const MAX_MESSAGE_BYTES = 900 * 1024;
 /** Profile and space pictures are 256 px WebP, well under this. */
 export const MAX_PICTURE_CHARS = 120_000;
+/** Most people in one room, admin included. */
+export const MAX_PEERS = 100;
+/** Admin keys are 48 hex characters; much shorter ones are refused. */
+export const MIN_ADMIN_KEY = 32;

@@ -56,7 +56,12 @@ export default {
     }
 
     if (url.pathname.startsWith('/partytracks/')) {
-      if (!(await verifyTicket(env.TICKET_SECRET, request.headers.get('X-Ticket')))) return withCors(new Response('Not in a room', { status: 401 }));
+      // A valid pass isn't enough: the person must still be in that room (not removed, not gone).
+      const ticket = await verifyTicket(env.TICKET_SECRET, request.headers.get('X-Ticket'));
+      const code = ticket && normalizeRoomCode(ticket.room);
+      const stub = code && env.ROOMS.get(env.ROOMS.idFromName(code));
+      const present = stub && ((await (await stub.fetch(`https://room/room/${code}/present?code=${code}&peer=${encodeURIComponent(ticket.peer)}`)).json()) as { present: boolean }).present;
+      if (!present) return withCors(new Response('Not in a room', { status: 401 }));
       const res = await routePartyTracksRequest({
         appId: env.SFU_APP_ID,
         token: env.SFU_APP_TOKEN,

@@ -1,4 +1,4 @@
-import type { AdminHello, ClientMessage, ServerMessage } from '@classroom/protocol';
+import { MAX_PEERS, type AdminHello, type ClientMessage, type ServerMessage } from '@classroom/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { RoomCore, type Conn } from './core';
 
@@ -26,16 +26,21 @@ const adminHello = (over: Partial<AdminHello> = {}): ClientMessage => ({
   color: '#4f46e5',
   picture: null,
   admin: {
-    key: 'secret-key',
+    key: KEY,
     space: { title: 'Algebra', color: '#4f46e5', picture: null, kind: 'class', schedule: null, adminName: 'Huda' },
     settings: { waitingRoom: false, muteOnJoin: true, guestsCanShare: false, chatEnabled: true },
     password: '',
     ...over,
   },
 });
+const KEY = 'k'.repeat(48);
+const OTHER_KEY = 'o'.repeat(48);
 const guestHello = (name = 'Omar', password = ''): ClientMessage => ({ t: 'hello', name, color: '#0ea5e9', picture: null, password });
 
 let room: RoomCore;
+let owner: string | null;
+let timers: (() => void)[];
+let clock: number;
 let n = 0;
 async function join(hello: ClientMessage, ip?: string) {
   const c = new FakeConn(`c${++n}`, ip);
@@ -46,7 +51,15 @@ async function join(hello: ClientMessage, ip?: string) {
 
 beforeEach(() => {
   n = 0;
-  room = new RoomCore({ now: () => 1000, issueTicket: async (id) => `ticket-${id}` });
+  owner = null;
+  timers = [];
+  clock = 1000;
+  room = new RoomCore({
+    now: () => clock,
+    issueTicket: async (id) => `ticket-${id}`,
+    owner: { get: async () => owner, set: async (h) => void (owner = h) },
+    schedule: (fn) => void timers.push(fn),
+  });
 });
 
 describe('opening a room', () => {
@@ -68,7 +81,7 @@ describe('opening a room', () => {
 
   it('rejects someone claiming to be admin with the wrong key', async () => {
     await join(adminHello());
-    const fake = await join(adminHello({ key: 'guess' }));
+    const fake = await join(adminHello({ key: OTHER_KEY }));
     expect(fake.last('error')?.code).toBe('notAdmin');
     expect(fake.closed).toBe(true);
   });
@@ -208,7 +221,72 @@ describe('in the call', () => {
     expect(room.isLive()).toBe(true);
     room.disconnect(g.id);
     expect(room.isLive()).toBe(false);
-    // A fresh admin key can open it again: nothing was kept.
-    expect((await join(adminHello({ key: 'other' }))).last('welcome')).toBeDefined();
+    // Only the owner can open it again; another key can't take the code over.
+    expect((await join(adminHello({ key: OTHER_KEY }))).last('error')?.code).toBe('notAdmin');
+    expect((await join(adminHello())).last('welcome')).toBeDefined();
+  });
+});
+
+describe('defenses', () => {
+  it('lets a space be claimed once, by its key, and keeps squatters out', async () => {
+    const claim = async (key: string) => {
+      const c = new FakeConn(`c${++n}`);
+      room.connect(c);
+      await room.message(c.id, { t: 'claim', key });
+      return c.last('claimed')?.ok;
+    };
+    expect(await claim('short')).toBe(false);
+    expect(await claim(KEY)).toBe(true);
+    expect(await claim(KEY)).toBe(true);
+    expect(await claim(OTHER_KEY)).toBe(false);
+    expect(owner).toMatch(/^[0-9a-f]{64}$/); // only a hash is stored, never the key
+    expect((await join(adminHello({ key: OTHER_KEY }))).last('error')?.code).toBe('notAdmin');
+    expect((await join(adminHello())).last('welcome')).toBeDefined();
+  });
+
+  it('closes sockets that never say hello', async () => {
+    const idle = new FakeConn('idle');
+    room.connect(idle);
+    const a = await join(adminHello());
+    timers.forEach((fn) => fn());
+    expect(idle.closed).toBe(true);
+    expect(a.closed).toBe(false);
+  });
+
+  it('turns people away once the room is full', async () => {
+    await join(adminHello());
+    for (let i = 0; i < MAX_PEERS - 1; i++) await join(guestHello(`g${i}`));
+    expect((await join(guestHello('late'))).last('error')?.code).toBe('full');
+  });
+
+  it('drops message floods and cuts off the flooder', async () => {
+    const a = await join(adminHello());
+    const g = await join(guestHello());
+    for (let i = 0; i < 1000; i++) await room.message(g.id, { t: 'send', topic: 'chat', data: i });
+    const got = a.all('msg').length;
+    expect(got).toBeGreaterThan(100);
+    expect(got).toBeLessThanOrEqual(201);
+    clock += 1000; // a second later the guest can talk again
+    await room.message(g.id, { t: 'send', topic: 'chat', data: 'ok' });
+    expect(a.last('msg')?.data).toBe('ok');
+    for (let i = 0; i < 2500; i++) await room.message(g.id, { t: 'send', topic: 'chat', data: i });
+    expect(g.closed).toBe(true);
+  });
+
+  it('cleans hostile profile and space fields', async () => {
+    const a = await join({ ...adminHello(), admin: { ...(adminHello() as { admin: AdminHello }).admin, space: { title: 'x'.repeat(500), color: 'red;x:url(y)', picture: 'data:image/svg+xml,<svg onload=alert(1)>', kind: 'evil', schedule: null, adminName: 'H' } as never } } as ClientMessage);
+    expect(a.last('welcome')!.space).toMatchObject({ color: '#4f46e5', picture: null, kind: 'meeting' });
+    expect(a.last('welcome')!.space.title).toHaveLength(80);
+    await join({ t: 'hello', name: 'x', color: 'red;background:url(https://evil.example)', picture: 'data:image/svg+xml,<svg onload=alert(1)>' });
+    expect(a.last('peer')!.peer).toMatchObject({ color: '#4f46e5', picture: null });
+  });
+
+  it('honors media passes only for people still in the room', async () => {
+    const a = await join(adminHello());
+    const g = await join(guestHello());
+    const id = g.last('welcome')!.you.id;
+    expect(room.hasPeer(id)).toBe(true);
+    await room.message(a.id, { t: 'admin', action: { action: 'remove', identity: id } });
+    expect(room.hasPeer(id)).toBe(false);
   });
 });

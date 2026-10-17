@@ -6,7 +6,8 @@ import { signTicket } from './ticket';
 
 /**
  * One room per code. Connections stay open (no hibernation), so the room lives in memory
- * while anyone is in it and is gone when they leave. Nothing is written to storage.
+ * while anyone is in it and is gone when they leave. The only thing written to storage is a
+ * hash of the admin key (the room's owner), so nobody else can take the code over.
  */
 export class Room extends DurableObject<Env> {
   private core: RoomCore;
@@ -14,13 +15,21 @@ export class Room extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.core = new RoomCore({ now: () => Date.now(), issueTicket: (peer) => signTicket(env.TICKET_SECRET, this.code, peer) });
+    this.core = new RoomCore({
+      now: () => Date.now(),
+      issueTicket: (peer) => signTicket(env.TICKET_SECRET, this.code, peer),
+      owner: {
+        get: async () => (await ctx.storage.get<string>('owner')) ?? null,
+        set: (hash) => ctx.storage.put('owner', hash),
+      },
+    });
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     this.code = url.searchParams.get('code') ?? this.code;
     if (url.pathname.endsWith('/status')) return Response.json({ live: this.core.isLive() });
+    if (url.pathname.endsWith('/present')) return Response.json({ present: this.core.hasPeer(url.searchParams.get('peer') ?? '') });
     if (request.headers.get('Upgrade') !== 'websocket') return new Response('Expected a WebSocket', { status: 426 });
 
     const [client, server] = Object.values(new WebSocketPair());

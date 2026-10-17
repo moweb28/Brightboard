@@ -47,3 +47,14 @@ Until you do, `npm run build` in the desktop app stops with a reminder. `npm run
 ## Later
 - Once the Windows installer is on GitHub Releases, set `DOWNLOAD_URL` in `wrangler.jsonc` to that page and deploy again.
 - Logs: `npx wrangler tail`. Usage: dashboard → Workers & Pages → brightboard, and Realtime → your app.
+
+## Security check after deploying
+Run the attack script against your live relay. All 11 checks should say `safe`:
+```
+node attack/attack.mjs https://brightboard.<subdomain>.workers.dev
+```
+It tries room squatting, password guessing, connection and message floods, bot floods, forged or stale media passes, hostile profile data and waiting-room leaks.
+
+What the relay stores: only a SHA-256 hash of each space's admin key, so nobody else can ever open that space as admin. No names, messages, pictures or passwords are ever written down.
+
+Optional extra shield (free): dashboard → your domain or Worker → Security → WAF → Rate limiting rules, e.g. 60 requests per 10 seconds per IP on `/room/*`. This keeps a stranger from burning your free daily request allowance.

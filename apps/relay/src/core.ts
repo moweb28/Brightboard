@@ -1,5 +1,7 @@
 import {
+  MAX_PEERS,
   MAX_PICTURE_CHARS,
+  MIN_ADMIN_KEY,
   type AdminAction,
   type ClientMessage,
   type PeerInfo,
@@ -21,20 +23,43 @@ interface Options {
   now(): number;
   /** Signs a short-lived pass that lets this peer use the media service. */
   issueTicket(peerId: string): Promise<string>;
+  /**
+   * The room's owner: a SHA-256 hash of the admin key, kept by the Durable Object so that only the
+   * computer that created the space can ever open it as admin. It is the only thing the relay stores.
+   */
+  owner: { get(): Promise<string | null>; set(hash: string): Promise<void> };
+  /** Closes connections that never say hello (defaults to setTimeout). */
+  schedule?(fn: () => void, ms: number): void;
 }
 
 const MAX_NAME = 40;
+const MAX_TITLE = 80;
+const MAX_SCHEDULE_CHARS = 4000;
 const WRONG_PASSWORD_LIMIT = 10;
 const WRONG_PASSWORD_WINDOW = 10 * 60_000;
+/** Open sockets per room, counting ones that haven't joined yet. */
+const MAX_CONNS = MAX_PEERS + 25;
+/** A socket must join (or check/claim) within this time. */
+const HELLO_TIMEOUT = 10_000;
+/** Per person: steady messages per second, and the burst allowed on top (whiteboard drawing is chatty). */
+const RATE_PER_SEC = 40;
+const RATE_BURST = 200;
+/** Dropping this many messages from one person means they're flooding on purpose: disconnect them. */
+const FLOOD_DROPS = 2000;
 
-const EMPTY_SPACE: SharedSpaceInfo = { title: '', color: '#4f46e5', picture: null, kind: 'meeting', schedule: null, adminName: '' };
+const SPACE_KINDS = ['hangout', 'meeting', 'class', 'event'] as const;
+const DEFAULT_COLOR = '#4f46e5';
+const EMPTY_SPACE: SharedSpaceInfo = { title: '', color: DEFAULT_COLOR, picture: null, kind: 'meeting', schedule: null, adminName: '' };
 
 /**
  * Everything a live room knows, in memory only. When the last person leaves it is all forgotten,
- * so the next admin hello opens it fresh.
+ * so the next admin hello opens it fresh. Only the owner hash (see Options.owner) outlives the call.
  */
 export class RoomCore {
   private conns = new Map<string, Conn>();
+  private rates = new Map<string, { tokens: number; at: number; dropped: number }>();
+  /** Connections whose admin hello is being checked, so a second hello can't slip in meanwhile. */
+  private joining = new Set<string>();
   /** Peers by connection id; only connections that said hello. */
   private peers = new Map<string, PeerInfo>();
   private adminKey: string | null = null;
@@ -66,12 +91,30 @@ export class RoomCore {
     return this.adminKey !== null && this.peers.size > 0;
   }
 
+  /** Is this person in the room right now (and admitted)? Media passes are only honored while they are. */
+  hasPeer(peerId: string) {
+    const entry = this.byPeerId(peerId);
+    return !!entry && !entry[1].waiting;
+  }
+
   connect(conn: Conn) {
+    if (this.conns.size >= MAX_CONNS) {
+      conn.send({ t: 'error', code: 'full' });
+      conn.close();
+      return;
+    }
     this.conns.set(conn.id, conn);
+    (this.opts.schedule ?? setTimeout)(() => {
+      if (this.conns.has(conn.id) && !this.peers.has(conn.id)) {
+        conn.close();
+        this.disconnect(conn.id);
+      }
+    }, HELLO_TIMEOUT);
   }
 
   disconnect(connId: string) {
     this.conns.delete(connId);
+    this.rates.delete(connId);
     const peer = this.peers.get(connId);
     if (!peer) return this.forgetIfEmpty();
     this.peers.delete(connId);
@@ -90,9 +133,11 @@ export class RoomCore {
     if (msg.t === 'ping') return conn.send({ t: 'pong' });
     if (msg.t === 'hello') return this.hello(conn, msg);
     if (msg.t === 'check') return this.check(conn, msg.password);
+    if (msg.t === 'claim') return this.claim(conn, msg.key);
 
     const peer = this.peers.get(connId);
     if (!peer) return;
+    if (!this.allow(connId)) return;
     switch (msg.t) {
       case 'tracks':
         if (peer.waiting) return;
@@ -117,13 +162,13 @@ export class RoomCore {
   }
 
   private async hello(conn: Conn, msg: Extract<ClientMessage, { t: 'hello' }>) {
-    if (this.peers.has(conn.id)) return;
+    if (this.peers.has(conn.id) || this.joining.has(conn.id)) return;
     const name = typeof msg.name === 'string' ? msg.name.trim().slice(0, MAX_NAME) : '';
     if (!name) return this.refuse(conn, 'badName');
     const base = {
       name,
-      color: typeof msg.color === 'string' ? msg.color.slice(0, 32) : '#4f46e5',
-      picture: typeof msg.picture === 'string' && msg.picture.startsWith('data:image/') && msg.picture.length <= MAX_PICTURE_CHARS ? msg.picture : null,
+      color: cleanColor(msg.color),
+      picture: cleanPicture(msg.picture),
       joinedAt: this.opts.now(),
       tracks: {},
       state: { micOn: false, cameraOn: false, hand: false, away: false },
@@ -131,8 +176,10 @@ export class RoomCore {
 
     let peer: PeerInfo;
     if (msg.admin) {
-      if (this.adminKey !== null && msg.admin.key !== this.adminKey) return this.refuse(conn, 'notAdmin');
-      this.adminKey = msg.admin.key;
+      this.joining.add(conn.id);
+      const owner = await this.ownerCheck(msg.admin.key).finally(() => this.joining.delete(conn.id));
+      if (!owner || !this.conns.has(conn.id)) return this.refuse(conn, 'notAdmin');
+      this.adminKey = owner;
       // The admin's computer holds the space, so its latest details win.
       this.applySpace(msg.admin.space, msg.admin.password);
       if (!this.peers.size) this.meta = { ...this.meta, ...msg.admin.settings, locked: false };
@@ -146,7 +193,7 @@ export class RoomCore {
       }
       peer = { ...base, id: `a-${crypto.randomUUID().slice(0, 8)}`, role: 'host', waiting: false, canShare: true };
     } else {
-      const problem = this.guestProblem(conn.ip, msg.password);
+      const problem = this.guestProblem(conn.ip, msg.password) ?? (this.peers.size >= MAX_PEERS ? 'full' : null);
       if (problem) return this.refuse(conn, problem);
       peer = { ...base, id: `g-${crypto.randomUUID().slice(0, 8)}`, role: 'guest', waiting: this.meta.waitingRoom, canShare: this.meta.guestsCanShare };
     }
@@ -154,6 +201,44 @@ export class RoomCore {
     this.peers.set(conn.id, peer);
     await this.welcome(conn, peer);
     this.toWatchers(peer, { t: 'peer', peer });
+  }
+
+  /**
+   * The owner hash for this key if it may open the room as admin, else null. The first valid key
+   * to reach a code owns it for good; the app claims each code as soon as the space is created.
+   */
+  private async ownerCheck(key: unknown): Promise<string | null> {
+    if (typeof key !== 'string' || key.length < MIN_ADMIN_KEY || key.length > 256) return null;
+    const hash = await sha256(key);
+    const owner = await this.opts.owner.get();
+    if (owner === null) await this.opts.owner.set(hash);
+    else if (owner !== hash) return null;
+    return hash;
+  }
+
+  private async claim(conn: Conn, key: unknown) {
+    const ok = (await this.ownerCheck(key)) !== null;
+    conn.send({ t: 'claimed', ok });
+    conn.close();
+    this.conns.delete(conn.id);
+  }
+
+  /** Token bucket per connection; flooders get cut off. */
+  private allow(connId: string) {
+    const now = this.opts.now();
+    const r = this.rates.get(connId) ?? { tokens: RATE_BURST, at: now, dropped: 0 };
+    r.tokens = Math.min(RATE_BURST, r.tokens + ((now - r.at) / 1000) * RATE_PER_SEC);
+    r.at = now;
+    this.rates.set(connId, r);
+    if (r.tokens >= 1) {
+      r.tokens -= 1;
+      return true;
+    }
+    if (++r.dropped >= FLOOD_DROPS) {
+      this.conns.get(connId)?.close();
+      this.disconnect(connId);
+    }
+    return false;
   }
 
   private check(conn: Conn, password: unknown) {
@@ -251,8 +336,8 @@ export class RoomCore {
   }
 
   private applySpace(space: SharedSpaceInfo, password: string) {
-    this.space = { ...EMPTY_SPACE, ...space };
-    this.password = typeof password === 'string' ? password : '';
+    this.space = cleanSpace(space);
+    this.password = typeof password === 'string' ? password.slice(0, 128) : '';
     this.meta = { ...this.meta, title: this.space.title, kind: this.space.kind };
   }
 
@@ -303,6 +388,34 @@ export class RoomCore {
     this.space = EMPTY_SPACE;
     this.meta = RoomCore.freshMeta();
   }
+}
+
+async function sha256(text: string) {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
+  return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Only #rrggbb colors pass, so nothing odd ever reaches a style. */
+function cleanColor(c: unknown) {
+  return typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c) ? c : DEFAULT_COLOR;
+}
+
+/** Only small base64 WebP/PNG/JPEG pictures pass (no SVG, which can carry scripts). */
+function cleanPicture(p: unknown) {
+  return typeof p === 'string' && p.length <= MAX_PICTURE_CHARS && /^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(p) ? p : null;
+}
+
+function cleanSpace(s: unknown): SharedSpaceInfo {
+  const o = (s && typeof s === 'object' ? s : {}) as Record<string, unknown>;
+  const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const kind = SPACE_KINDS.includes(o.kind as never) ? (o.kind as SharedSpaceInfo['kind']) : EMPTY_SPACE.kind;
+  let schedule: SharedSpaceInfo['schedule'] = null;
+  try {
+    if (o.schedule && typeof o.schedule === 'object' && JSON.stringify(o.schedule).length <= MAX_SCHEDULE_CHARS) schedule = o.schedule as SharedSpaceInfo['schedule'];
+  } catch {
+    /* not plain data */
+  }
+  return { title: text(o.title, MAX_TITLE), color: cleanColor(o.color), picture: cleanPicture(o.picture), kind, schedule, adminName: text(o.adminName, MAX_NAME) };
 }
 
 function pickState(s: unknown) {
