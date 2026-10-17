@@ -6,3 +6,6 @@ out/
 .env
 
 apps/desktop/src/renderer/public/excalidraw-assets/
+
+.dev.vars
+.wrangler/

@@ -1,0 +1,22 @@
+{
+  "name": "@classroom/relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@classroom/protocol": "*",
+    "partytracks": "0.0.56"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.0",
+    "wrangler": "^4.40.0"
+  }
+}
