@@ -1,10 +1,11 @@
 import { convertToExcalidrawElements, Excalidraw, exportToBlob } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 import type { BinaryFileData, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-import { Download, GitBranch, Loader2, Lock, LockOpen, Scissors, Sparkles, Wand2, X } from 'lucide-react';
+import type { BoardDesign } from '@classroom/protocol';
+import { Download, GitBranch, Loader2, Lock, LockOpen, Scissors, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Menu } from '../../components/ui';
 import { useSettings, useT } from '../../lib/settings';
+import { applyDesign, DesignPicker, PensAndText } from './BoardTools';
 import { addIdea, insertMindMap, removeIdea, selectedNode } from './mindmapOps';
 import { SmartPen } from './smartPen';
 import type { BoardSync } from './useBoardSync';
@@ -34,6 +35,17 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
     () => new SmartPen(() => api.current, () => ({ shapes: settingsRef.current.boardShapes, handwriting: settingsRef.current.boardHandwriting, onReading: setReading })),
     [],
   );
+  // The admin's chosen look, shared with everyone.
+  const [design, setDesign] = useState<BoardDesign>(sync.store.current.design);
+  useEffect(() => sync.onDesign(setDesign), [sync]);
+  useEffect(() => {
+    if (api.current) applyDesign(api.current, design);
+  }, [design]);
+  const pickDesign = (d: BoardDesign) => {
+    sync.setDesign(d);
+    set('boardDesign', d); // the admin's next boards start with it too
+  };
+
   // Start from whatever was drawn earlier in this call.
   const initialData = useMemo(() => ({ elements: sync.store.current.elements, files: sync.store.current.files, scrollToContent: true }), [sync]);
 
@@ -98,12 +110,13 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
   };
 
   return (
-    <div className={`board ${viewOnly ? 'is-view-only' : ''}`} onKeyDownCapture={onKeyDownCapture}>
+    <div className={`board ${viewOnly ? 'is-view-only' : ''} ${design !== 'auto' ? 'has-design' : ''}`} onKeyDownCapture={onKeyDownCapture}>
       <Excalidraw
         excalidrawAPI={(a) => {
           api.current = a;
           sync.attach(a);
           pen.attach(a);
+          setTimeout(() => api.current === a && applyDesign(a, sync.store.current.design), 0);
           if (import.meta.env.DEV) (window as unknown as { __board?: ExcalidrawImperativeAPI }).__board = a; // test hook, dev builds only
         }}
         initialData={initialData}
@@ -133,18 +146,19 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
               </button>
             )}
             {!viewOnly && (
-              <Menu
-                trigger={(open, isOpen) => (
-                  <button className={`board-btn ${isOpen ? 'is-active' : ''}`} onClick={open} title={t.board.smartPen}>
-                    <Wand2 size={16} /> <span className="board-btn-label">{t.board.smartPen}</span>
-                  </button>
-                )}
-                items={[
-                  { icon: Sparkles, label: `${settings.boardShapes ? '✓ ' : ''}${t.board.smartShapes}`, onClick: () => set('boardShapes', !settings.boardShapes) },
-                  { icon: Wand2, label: `${settings.boardHandwriting ? '✓ ' : ''}${t.board.handwriting} · ${t.board.handwritingHint}`, onClick: () => set('boardHandwriting', !settings.boardHandwriting) },
-                ]}
+              <PensAndText
+                t={t}
+                api={() => api.current}
+                design={design}
+                smart={{
+                  shapes: settings.boardShapes,
+                  handwriting: settings.boardHandwriting,
+                  toggleShapes: () => set('boardShapes', !settings.boardShapes),
+                  toggleHandwriting: () => set('boardHandwriting', !settings.boardHandwriting),
+                }}
               />
             )}
+            {amHost && <DesignPicker t={t} design={design} onPick={pickDesign} />}
             <button className="board-btn" onClick={exportPng} title={t.board.exportPng}>
               <Download size={16} />
             </button>

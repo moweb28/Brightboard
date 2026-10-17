@@ -1,4 +1,4 @@
-import { BOARD_TOPIC, VersionTracker, type BoardPacket } from '@classroom/protocol';
+import { BOARD_TOPIC, isBoardDesign, VersionTracker, type BoardDesign, type BoardPacket } from '@classroom/protocol';
 import { CaptureUpdateAction, reconcileElements, restoreElements } from '@excalidraw/excalidraw';
 import type { BinaryFileData, BinaryFiles, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import { RoomEvent, type Participant, type Room } from '../../lib/rtc';
@@ -12,6 +12,8 @@ const FLUSH_MS = 80;
 export interface BoardStore {
   elements: Elements;
   files: BinaryFiles;
+  /** The look the admin picked; everyone sees the same one. */
+  design: BoardDesign;
 }
 
 export interface BoardSync {
@@ -20,10 +22,20 @@ export interface BoardSync {
   attach(api: ExcalidrawImperativeAPI | null): void;
   /** Call from Excalidraw's onChange. */
   onLocalChange(elements: Elements, files: BinaryFiles): void;
+  /** Admin only: changes the board look for everyone. */
+  setDesign(design: BoardDesign): void;
+  /** Called whenever the look changes (from the admin, or arriving from them). Returns an unsubscribe. */
+  onDesign(listener: (design: BoardDesign) => void): () => void;
 }
 
-export function useBoardSync(room: Room, amHost: boolean): BoardSync {
-  const store = useRef<BoardStore>({ elements: [], files: {} });
+export function useBoardSync(room: Room, amHost: boolean, initialDesign: BoardDesign = 'auto'): BoardSync {
+  const store = useRef<BoardStore>({ elements: [], files: {}, design: amHost ? initialDesign : 'auto' });
+  const designListeners = useRef(new Set<(d: BoardDesign) => void>());
+  const applyDesign = useCallback((d: BoardDesign) => {
+    if (store.current.design === d) return;
+    store.current = { ...store.current, design: d };
+    for (const fn of designListeners.current) fn(d);
+  }, []);
   const api = useRef<ExcalidrawImperativeAPI | null>(null);
   const tracker = useRef(new VersionTracker());
   const sentFiles = useRef(new Set<string>());
@@ -66,7 +78,7 @@ export function useBoardSync(room: Room, amHost: boolean): BoardSync {
 
   // Incoming board traffic.
   useEffect(() => {
-    room.registerTextStreamHandler(BOARD_TOPIC, async (reader) => {
+    room.registerTextStreamHandler(BOARD_TOPIC, async (reader, from) => {
       let packet: BoardPacket;
       try {
         packet = JSON.parse(await reader.readAll());
@@ -74,6 +86,11 @@ export function useBoardSync(room: Room, amHost: boolean): BoardSync {
         return;
       }
       if (packet.type === 'update' || packet.type === 'scene') applyRemote(packet.elements);
+      // Only the admin decides how the board looks.
+      if (packet.type === 'design' && isBoardDesign(packet.design)) {
+        const sender = room.remoteParticipants.get(from.identity);
+        if (sender && isHost(sender)) applyDesign(packet.design);
+      }
       if (packet.type === 'file' && packet.file?.dataURL?.startsWith('data:image/')) {
         const file = packet.file as unknown as BinaryFileData;
         sentFiles.current.add(file.id);
@@ -82,7 +99,7 @@ export function useBoardSync(room: Room, amHost: boolean): BoardSync {
       }
     });
     return () => room.unregisterTextStreamHandler(BOARD_TOPIC);
-  }, [room, applyRemote]);
+  }, [room, applyRemote, applyDesign]);
 
   // The admin's app hands the whole board to anyone who arrives late; guests hand it back to an
   // admin who rejoins (e.g. after restarting the app), so the board survives either side leaving.
@@ -91,6 +108,7 @@ export function useBoardSync(room: Room, amHost: boolean): BoardSync {
       if (isWaiting(p)) return;
       if (!amHost && !isHost(p)) return;
       setTimeout(() => {
+        if (amHost && store.current.design !== 'auto') void send({ type: 'design', design: store.current.design }, [p.identity]);
         const elements = api.current?.getSceneElementsIncludingDeleted() ?? store.current.elements;
         if (!elements.length) return;
         void send({ type: 'scene', elements: [...elements] }, [p.identity]);
@@ -117,6 +135,15 @@ export function useBoardSync(room: Room, amHost: boolean): BoardSync {
   // One stable object for the whole call: the Board's effects depend on it.
   return useMemo<BoardSync>(() => ({
     store,
+    setDesign(design) {
+      if (!amHost) return;
+      applyDesign(design);
+      void send({ type: 'design', design });
+    },
+    onDesign(listener) {
+      designListeners.current.add(listener);
+      return () => void designListeners.current.delete(listener);
+    },
     attach(next) {
       api.current = next;
       if (!next) return;
@@ -136,7 +163,7 @@ export function useBoardSync(room: Room, amHost: boolean): BoardSync {
     onLocalChange(elements, files) {
       // Until the board is ready its (empty) scene must not overwrite what arrived from others.
       if (!api.current) return;
-      store.current = { elements, files };
+      store.current = { ...store.current, elements, files };
       const changed = tracker.current.unsent(elements);
       if (changed.length) {
         tracker.current.mark(changed);
@@ -145,5 +172,5 @@ export function useBoardSync(room: Room, amHost: boolean): BoardSync {
       }
       sendFiles(files);
     },
-  }), [flush, sendFiles]);
+  }), [flush, sendFiles, amHost, applyDesign, send]);
 }

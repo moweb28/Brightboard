@@ -91,7 +91,7 @@ export function RoomView({ join, choices, password }: Props) {
   });
   const reactions = useReactions(room);
   const remote = useRemote(room);
-  const boardSync = useBoardSync(room, amHost);
+  const boardSync = useBoardSync(room, amHost, settings.boardDesign);
   const rec = useRecording(room, join, connection, moderate);
   const tx = useTranscript(room, join, moderate);
   const [dontAskRecord, setDontAskRecord] = useState(false);
@@ -352,10 +352,11 @@ export function RoomView({ join, choices, password }: Props) {
           onClose={() => rec.answer(false, dontAskRecord)}
           footer={
             <>
-              <Button variant="ghost" onClick={() => rec.answer(false, dontAskRecord)}>
+              {/* The safe choice has focus: a stray Enter or Space must never start recording. */}
+              <Button variant="ghost" onClick={() => rec.answer(false, dontAskRecord)} autoFocus>
                 {t.recording.notNow}
               </Button>
-              <Button icon={CircleDot} onClick={() => rec.answer(true, dontAskRecord)} autoFocus>
+              <Button icon={CircleDot} onClick={() => rec.answer(true, dontAskRecord)}>
                 {t.recording.start}
               </Button>
             </>
@@ -376,10 +377,11 @@ export function RoomView({ join, choices, password }: Props) {
           onClose={() => remote.answer(false)}
           footer={
             <>
-              <Button variant="ghost" onClick={() => remote.answer(false)}>
+              {/* Deny has focus: someone typing when this pops up must not hand over their computer by accident. */}
+              <Button variant="ghost" onClick={() => remote.answer(false)} autoFocus>
                 {t.remote.deny}
               </Button>
-              <Button icon={MousePointer2} onClick={() => remote.answer(true)} autoFocus>
+              <Button icon={MousePointer2} onClick={() => remote.answer(true)}>
                 {t.remote.allow}
               </Button>
             </>

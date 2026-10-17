@@ -1,3 +1,4 @@
+import type { BoardDesign } from '@classroom/protocol';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { safeGet, safeSet } from './storage';
 import { dictionaries, type Dict, type Lang } from './i18n';
@@ -30,6 +31,8 @@ export interface Settings {
   /** Whiteboard smart pen. */
   boardShapes: boolean;
   boardHandwriting: boolean;
+  /** Admin: the board look used when a whiteboard opens (everyone sees it). */
+  boardDesign: BoardDesign;
   /** Transcript: who is transcribed and which speech model. */
   transcriptMode: 'me' | 'everyone';
   transcriptModel: 'standard' | 'accurate';
@@ -53,6 +56,7 @@ const DEFAULTS: Settings = {
   noRecordAsk: [],
   boardShapes: true,
   boardHandwriting: false,
+  boardDesign: 'auto',
   transcriptMode: 'me',
   transcriptModel: 'standard',
 };

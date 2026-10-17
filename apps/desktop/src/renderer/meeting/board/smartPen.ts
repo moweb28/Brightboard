@@ -8,9 +8,12 @@ type FreeDraw = El & { points: readonly Pt[] };
 const HANDWRITING_IDLE_MS = 1500;
 const MIN_CONFIDENCE = 65;
 
-/** Clean, mouse-friendly replacement for a recognized stroke (same color and thickness). */
+/** Highlighter strokes are see-through; they stay free-form marks. */
+const isHighlighter = (stroke: El) => stroke.opacity < 60;
+
+/** Clean, mouse-friendly replacement for a recognized stroke (same color, thickness and opacity). */
 function cleanShape(stroke: FreeDraw, s: RecognizedShape): El[] {
-  const style = { strokeColor: stroke.strokeColor, strokeWidth: stroke.strokeWidth, roughness: 0, backgroundColor: 'transparent' };
+  const style = { strokeColor: stroke.strokeColor, strokeWidth: stroke.strokeWidth, opacity: stroke.opacity, roughness: 0, backgroundColor: 'transparent' };
   if (s.kind === 'rectangle' || s.kind === 'ellipse') {
     return convertToExcalidrawElements([{ type: s.kind, x: stroke.x + s.x, y: stroke.y + s.y, width: s.width, height: s.height, ...style }]) as El[];
   }
@@ -79,6 +82,14 @@ export class SmartPen {
     const { shapes, handwriting } = this.opts();
     if (!api || (!shapes && !handwriting)) return;
     const all = api.getSceneElementsIncludingDeleted();
+    if (isHighlighter(stroke)) {
+      // Even thickness (no pen-pressure taper) and a steadier line; never snapped or read as text.
+      api.updateScene({
+        elements: all.map((e) => (e.id === stroke.id ? newElementWith(e, { points: smoothStroke(stroke.points as Pt[]), pressures: [], simulatePressure: false } as never) : e)),
+        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      });
+      return;
+    }
     const shape = shapes ? recognizeShape(stroke.points as Pt[]) : null;
     if (shape) {
       const replacement = cleanShape(stroke, shape);

@@ -21,6 +21,9 @@ The admin opens it from the dock; it takes the stage for everyone. Text, picture
 **mind maps** (Mind map button, then Tab = branch, Enter = sibling, Delete = remove), export to PNG, and a
 **Smart pen** for mouse users: rough circles/boxes/lines/arrows/triangles snap to clean shapes (Ctrl+Z restores the
 stroke), other strokes are smoothed, and optional handwriting → text (local OCR, best with neat print).
+**Pens & text**: pen, marker, highlighter and chalk, with colors and thickness; seven fonts (hand-drawn, normal,
+headline, playful, clean, sketchy, code) up to 3XL. The admin picks the **board look** for everyone: whiteboard,
+blackboard, chalkboard, paper, grid paper or blueprint (dark boards switch to light ink).
 **Snip** grabs part of your screen (another app, a website, a PDF) and drops it on the board: Brightboard steps
 aside, you drag a rectangle, and the picture appears for everyone (Esc or right-click cancels).
 The admin can lock it so only they draw. Late joiners get the full board.
