@@ -5,6 +5,7 @@ import { JoinError, Room } from './rtc';
  * The only part of the app that talks to the internet: the Cloudflare connection service
  * (apps/relay). It carries the live call and stores nothing.
  */
+/** Set per build in .env.development (local relay) and .env.production (deployed relay). */
 export const RELAY_URL: string = (import.meta.env.VITE_RELAY_URL as string | undefined) ?? 'http://127.0.0.1:8787';
 
 /** A call failure with a stable `code` the UI translates (see `errors` in i18n). */

@@ -10,7 +10,7 @@ type Listener = (...args: any[]) => void;
 type VideoEffect = (track: MediaStreamTrack) => Promise<MediaStreamTrack>;
 
 export interface RoomConfig {
-  /** e.g. https://brightboard.example.workers.dev */
+  /** The relay (apps/relay): VITE_RELAY_URL from apps/desktop/.env.development or .env.production. */
   relayUrl: string;
   code: string;
   hello: Hello;
