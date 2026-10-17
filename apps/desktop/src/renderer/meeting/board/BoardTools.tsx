@@ -1,6 +1,6 @@
-import { BOARD_DESIGNS, type BoardDesign } from '@classroom/protocol';
+import { BOARD_DESIGNS, GEO_SHAPES, GEO_TRIANGLES, geoShape, type BoardDesign, type GeoShape } from '@classroom/protocol';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-import { Check, ChevronDown, Download, GitBranch, Grid3x3, Highlighter, Tag, MoreHorizontal, Pen, PenLine, PenTool, Shapes, Type } from 'lucide-react';
+import { Check, ChevronDown, Download, GitBranch, Grid3x3, Hexagon, Highlighter, Tag, MoreHorizontal, Pen, PenLine, PenTool, Shapes, Type } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Dict } from '../../lib/i18n';
 
@@ -286,6 +286,59 @@ export function MoreMenu({ t, amHost, canDraw, design, onDesign, onMindMap, onEx
               <p className="pop-note">{t.board.designNote}</p>
             </>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A shape's outline as a small icon, drawn from the same geometry the board uses. */
+function ShapeIcon({ kind }: { kind: GeoShape }) {
+  const spec = geoShape(kind, 1);
+  const k = 18 / Math.max(spec.width, spec.height);
+  const w = spec.width * k;
+  const h = spec.height * k;
+  const ox = (24 - w) / 2;
+  const oy = (24 - h) / 2;
+  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinejoin: 'round' as const };
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden>
+      {spec.type === 'rectangle' && <rect x={ox} y={oy} width={w} height={h} {...common} />}
+      {spec.type === 'ellipse' && <ellipse cx={12} cy={12} rx={w / 2} ry={h / 2} {...common} />}
+      {spec.type === 'diamond' && <polygon points={`${12},${oy} ${ox + w},${12} ${12},${oy + h} ${ox},${12}`} {...common} />}
+      {spec.type === 'polygon' && <polygon points={spec.points.slice(0, -1).map(([x, y]) => `${ox + x * k},${oy + y * k}`).join(' ')} {...common} />}
+    </svg>
+  );
+}
+
+/** Ready-made geometric shapes: click one and it lands in the middle of the board, sized in units. */
+export function ShapesMenu({ t, onPick }: { t: Dict; onPick(kind: GeoShape): void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useDismiss(open, () => setOpen(false));
+  const tile = (kind: GeoShape) => (
+    <button
+      key={kind}
+      className="shape-tile"
+      onClick={() => {
+        setOpen(false);
+        onPick(kind);
+      }}
+    >
+      <ShapeIcon kind={kind} />
+      <span>{t.board.geo[kind]}</span>
+    </button>
+  );
+  return (
+    <div className="menu-anchor" ref={ref}>
+      <button className={`board-btn ${open ? 'is-active' : ''}`} onClick={() => setOpen((o) => !o)} title={t.board.shapesTitle} aria-expanded={open}>
+        <Hexagon size={16} /> <span className="board-btn-label">{t.board.shapes}</span>
+      </button>
+      {open && (
+        <div className="board-pop shapes-pop">
+          <p className="pop-title">{t.board.shapes}</p>
+          <div className="shape-grid">{GEO_SHAPES.map(tile)}</div>
+          <p className="pop-title">{t.board.triangles}</p>
+          <div className="shape-grid">{GEO_TRIANGLES.map(tile)}</div>
         </div>
       )}
     </div>

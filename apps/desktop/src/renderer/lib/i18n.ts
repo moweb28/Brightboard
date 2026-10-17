@@ -360,6 +360,10 @@ const en = {
     smartShapesHint: 'Rough circles, boxes, lines and arrows become clean ones; other strokes get smoothed',
     pens: 'Pens & text',
     more: 'More',
+    shapes: 'Shapes',
+    shapesTitle: 'Geometric shapes: squares, polygons, circles and triangles',
+    triangles: 'Triangles',
+    geo: { square: 'Square', rectangle: 'Rectangle', parallelogram: 'Parallelogram', trapezoid: 'Trapezoid', rhombus: 'Rhombus', pentagon: 'Pentagon', hexagon: 'Hexagon', circle: 'Circle', equilateral: 'Equilateral', isosceles: 'Isosceles', right: 'Right', scalene: 'Scalene', obtuse: 'Obtuse' },
     measure: {
       title: 'Measure',
       buttonTitle: 'Measure shapes: lengths, area and perimeter',
@@ -801,6 +805,10 @@ const ar: Dict = {
     smartShapesHint: 'تتحول الدوائر والمربعات والخطوط والأسهم المرسومة باليد إلى أشكال نظيفة، وتُنعَّم بقية الخطوط',
     pens: 'الأقلام والنص',
     more: 'المزيد',
+    shapes: 'الأشكال',
+    shapesTitle: 'أشكال هندسية: مربعات ومضلعات ودوائر ومثلثات',
+    triangles: 'المثلثات',
+    geo: { square: 'مربع', rectangle: 'مستطيل', parallelogram: 'متوازي أضلاع', trapezoid: 'شبه منحرف', rhombus: 'معيّن', pentagon: 'خماسي', hexagon: 'سداسي', circle: 'دائرة', equilateral: 'متساوي الأضلاع', isosceles: 'متساوي الساقين', right: 'قائم الزاوية', scalene: 'مختلف الأضلاع', obtuse: 'منفرج الزاوية' },
     measure: {
       title: 'القياس',
       buttonTitle: 'قياس الأشكال: الأطوال والمساحة والمحيط',

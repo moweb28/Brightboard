@@ -19,6 +19,15 @@ interface Label {
   x: number;
   y: number;
   text: string;
+  /** Angles look different from lengths. */
+  angle?: boolean;
+}
+
+/** A dashed line drawn over the board (a circle's diameter), in screen pixels. */
+interface Guide {
+  key: string;
+  a: P;
+  b: P;
 }
 
 const rotate = ([x, y]: P, [cx, cy]: P, a: number): P => {
@@ -48,6 +57,7 @@ export function SizeLabels({ api, tick, scale, unit }: Props) {
   const toScreen = ([x, y]: P): P => [(x + st.scrollX) * zoom, (y + st.scrollY) * zoom];
   const fmt = (px: number) => `${roundMeasure(px / (scale > 0 ? scale : 1))} ${unit}`;
   const labels: Label[] = [];
+  const guides: Guide[] = [];
 
   const selected = st.selectedElementIds;
   /** A label just outside the edge a→b, on the side of `outward` (a point outside the shape). */
@@ -84,13 +94,50 @@ export function SizeLabels({ api, tick, scale, unit }: Props) {
       edge(`${el.id}:s`, at([x + w / 2, y]), at([x + w, y + h / 2]), at([x + w + 1000, y - 1000]), fmt(Math.hypot(w / 2, h / 2)));
     } else if (el.type === 'ellipse') {
       const circle = Math.abs(w - h) <= Math.max(1, Math.max(w, h) * 0.02);
-      edge(`${el.id}:w`, at([x, y]), at([x + w, y]), at([x + w / 2, y - 1000]), circle ? `⌀ ${fmt(w)}` : fmt(w), selected[el.id] ? ROTATE_HANDLE_CLEARANCE : 0);
+      if (circle) {
+        // The diameter drawn across the middle, with its length just above the line.
+        const a = toScreen(at([x, y + h / 2]));
+        const b = toScreen(at([x + w, y + h / 2]));
+        if (Math.hypot(b[0] - a[0], b[1] - a[1]) >= MIN_EDGE_PX * 2) {
+          guides.push({ key: `${el.id}:d`, a, b });
+          const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+          // Up from the line (perpendicular, toward the top of the screen).
+          let nx = -(b[1] - a[1]) / len;
+          let ny = (b[0] - a[0]) / len;
+          if (ny > 0) [nx, ny] = [-nx, -ny];
+          labels.push({ key: `${el.id}:dl`, x: (a[0] + b[0]) / 2 + nx * 13, y: (a[1] + b[1]) / 2 + ny * 13, text: `d = ${fmt(w)}` });
+        }
+        continue;
+      }
+      edge(`${el.id}:w`, at([x, y]), at([x + w, y]), at([x + w / 2, y - 1000]), fmt(w), selected[el.id] ? ROTATE_HANDLE_CLEARANCE : 0);
       if (!circle) edge(`${el.id}:h`, at([x + w, y]), at([x + w, y + h]), at([x + w + 1000, y + h / 2]), fmt(h));
     } else if ('points' in el && el.points.length >= 2) {
       const pts = (el.points as readonly P[]).map(([px, py]) => at([x + px, y + py]));
       const closed = pts.length >= 4 && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 2;
       // Labels go outside a closed shape (away from its middle), or above an open line.
       const mid: P = pts.slice(0, closed ? -1 : undefined).reduce<P>((m, p, _i, all) => [m[0] + p[0] / all.length, m[1] + p[1] / all.length], [0, 0]);
+      // Triangles: each corner's angle, inside the corner.
+      if (closed && pts.length === 4) {
+        const corners = pts.slice(0, 3);
+        corners.forEach((v, i) => {
+          const pa = corners[(i + 2) % 3];
+          const pb = corners[(i + 1) % 3];
+          const ua: P = [pa[0] - v[0], pa[1] - v[1]];
+          const ub: P = [pb[0] - v[0], pb[1] - v[1]];
+          const la = Math.hypot(...ua) || 1;
+          const lb = Math.hypot(...ub) || 1;
+          const deg = (Math.acos(Math.max(-1, Math.min(1, (ua[0] * ub[0] + ua[1] * ub[1]) / (la * lb)))) * 180) / Math.PI;
+          const sv = toScreen(v);
+          const sa = toScreen(pa);
+          const sb = toScreen(pb);
+          if (Math.min(Math.hypot(sa[0] - sv[0], sa[1] - sv[1]), Math.hypot(sb[0] - sv[0], sb[1] - sv[1])) < MIN_EDGE_PX * 1.5) return;
+          // Along the bisector, further in for sharp corners so the label clears both sides.
+          const dir: P = [(sa[0] - sv[0]) / Math.hypot(sa[0] - sv[0], sa[1] - sv[1]) + (sb[0] - sv[0]) / Math.hypot(sb[0] - sv[0], sb[1] - sv[1]), (sa[1] - sv[1]) / Math.hypot(sa[0] - sv[0], sa[1] - sv[1]) + (sb[1] - sv[1]) / Math.hypot(sb[0] - sv[0], sb[1] - sv[1])];
+          const dl = Math.hypot(...dir) || 1;
+          const d = Math.min(70, 16 / Math.max(0.2, Math.sin((deg * Math.PI) / 360)));
+          labels.push({ key: `${el.id}:a${i}`, x: sv[0] + (dir[0] / dl) * d, y: sv[1] + (dir[1] / dl) * d, text: `${Math.round(deg)}°`, angle: true });
+        });
+      }
       pts.slice(1, 9).forEach((b, i) => {
         const a = pts[i];
         const m: P = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
@@ -104,8 +151,15 @@ export function SizeLabels({ api, tick, scale, unit }: Props) {
 
   return (
     <div className="size-labels" aria-hidden>
+      {guides.length > 0 && (
+        <svg className="size-guides">
+          {guides.map((g) => (
+            <line key={g.key} x1={g.a[0]} y1={g.a[1]} x2={g.b[0]} y2={g.b[1]} />
+          ))}
+        </svg>
+      )}
       {labels.map((l) => (
-        <span key={l.key} className="size-label" style={{ left: l.x, top: l.y }}>
+        <span key={l.key} className={`size-label ${l.angle ? 'is-angle' : ''}`} style={{ left: l.x, top: l.y }}>
           {l.text}
         </span>
       ))}

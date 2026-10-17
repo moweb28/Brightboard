@@ -33,6 +33,9 @@ Picking the board's **pen** shows a pen bar (pen, marker, highlighter, chalk, co
 **Pens & text**: pen, marker, highlighter and chalk, with colors and thickness; seven fonts (hand-drawn, normal,
 headline, playful, clean, sketchy, code) up to 3XL. The admin picks the **board look** for everyone: whiteboard,
 blackboard, chalkboard, paper, grid paper or blueprint (dark boards switch to light ink).
+**Shapes** adds ready-made geometry in the middle of the board, sized in units: square, rectangle, parallelogram,
+trapezoid, rhombus, pentagon, hexagon, circle, and equilateral, isosceles, right, scalene and obtuse triangles.
+Triangles show their angles in the corners and circles show their diameter inside.
 **Sizes on shapes** writes lengths right on the edges of boxes, circles, lines and triangles, live, grid or not
 (turn it off in More or the Measure panel). New shapes use clean single lines. **Measure** (ruler button) opens a side panel with the selected shape's sizes in cm, m, inches or grid squares:
 sides, width and height, radius and diameter, line length, perimeter, area and a triangle's angles. Type a width,

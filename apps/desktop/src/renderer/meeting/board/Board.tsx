@@ -1,11 +1,11 @@
-import { convertToExcalidrawElements, Excalidraw, exportToBlob } from '@excalidraw/excalidraw';
+import { CaptureUpdateAction, convertToExcalidrawElements, Excalidraw, exportToBlob, newElementWith } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 import type { BinaryFileData, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-import type { BoardDesign } from '@classroom/protocol';
+import { geoShape, type BoardDesign, type GeoShape } from '@classroom/protocol';
 import { Loader2, Lock, LockOpen, Maximize2, Minimize2, Ruler, Scissors, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings, useT } from '../../lib/settings';
-import { applyDesign, MoreMenu, PenBar, TextBar } from './BoardTools';
+import { applyDesign, inkFor, MoreMenu, PenBar, ShapesMenu, TextBar } from './BoardTools';
 import { MeasurePanel } from './MeasurePanel';
 import { SizeLabels } from './SizeLabels';
 import { addIdea, insertMindMap, removeIdea, selectedNode } from './mindmapOps';
@@ -138,6 +138,26 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
     }
   };
 
+  // Ready-made shapes land in the middle of the view, one unit = one grid square, clean and selected.
+  const insertShape = (kind: GeoShape) => {
+    const a = api.current;
+    if (!a) return;
+    const spec = geoShape(kind, settings.measureScale);
+    const st = a.getAppState();
+    const cx = -st.scrollX + st.width / 2 / st.zoom.value;
+    const cy = -st.scrollY + st.height / 2 / st.zoom.value;
+    const x = cx - spec.width / 2;
+    const y = cy - spec.height / 2;
+    const style = { strokeColor: st.currentItemOpacity < 100 ? inkFor(design) : st.currentItemStrokeColor, backgroundColor: 'transparent', strokeWidth: 2, roughness: 0, opacity: 100 };
+    const [base] =
+      spec.type === 'polygon'
+        ? convertToExcalidrawElements([{ type: 'line', x, y, width: 1, height: 1, ...style }])
+        : convertToExcalidrawElements([{ type: spec.type, x, y, width: spec.width, height: spec.height, ...style }]);
+    const shape = newElementWith(base, { roundness: null, ...(spec.type === 'polygon' ? { points: spec.points, width: spec.width, height: spec.height } : {}) } as never);
+    a.setActiveTool({ type: 'selection' });
+    a.updateScene({ elements: [...a.getSceneElementsIncludingDeleted(), shape], appState: { selectedElementIds: { [shape.id]: true } } as never, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+  };
+
   // Mind-map keys work while a mind-map box is selected (and you're not typing in it).
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
     const a = api.current;
@@ -199,6 +219,7 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
                 <Scissors size={16} /> <span className="board-btn-label">{t.board.snip}</span>
               </button>
             )}
+            {!viewOnly && <ShapesMenu t={t} onPick={insertShape} />}
             <button className={`board-btn ${measureOpen ? 'is-active' : ''}`} onClick={() => setMeasureOpen((o) => !o)} title={t.board.measure.buttonTitle} aria-label={t.board.measure.title} aria-pressed={measureOpen}>
               <Ruler size={16} />
             </button>

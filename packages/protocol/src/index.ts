@@ -152,4 +152,5 @@ export * from './board/sync';
 export * from './board/mindmap';
 export * from './board/shapes';
 export * from './board/measure';
+export * from './board/geometry';
 export * from './transcript';
