@@ -47,6 +47,8 @@ export interface CallRecord {
   spaceId: string;
   startedAt: number;
   endedAt: number | null;
+  /** Saved every minute during the call, so a call cut short (crash, power cut) still gets an end time. */
+  lastSeenAt?: number;
   attendees: { name: string; joinedAt: number }[];
 }
 

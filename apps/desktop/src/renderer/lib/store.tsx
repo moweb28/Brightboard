@@ -28,6 +28,10 @@ interface Store {
   forgetJoined(code: string): void;
   startCall(spaceId: string): string;
   endCall(callId: string): void;
+  /** Marks a running call as still going (see CallRecord.lastSeenAt). */
+  touchCall(callId: string): void;
+  /** Replaces everything with a restored backup. */
+  replaceAll(data: unknown): void;
   addAttendee(callId: string, name: string): void;
 }
 
@@ -39,8 +43,15 @@ const randomKey = () => Array.from(globalThis.crypto.getRandomValues(new Uint8Ar
 
 async function load(): Promise<LocalData> {
   // Without the desktop bridge (a plain browser preview), keep data in localStorage instead.
-  const raw = window.brightboard ? await window.brightboard.store.load() : JSON.parse(safeGet(FALLBACK_KEY) ?? 'null');
-  return raw && typeof raw === 'object' && (raw as LocalData).version === 1 ? { ...EMPTY_LOCAL_DATA, ...(raw as LocalData) } : EMPTY_LOCAL_DATA;
+  return normalize(window.brightboard ? await window.brightboard.store.load() : JSON.parse(safeGet(FALLBACK_KEY) ?? 'null'));
+}
+
+/** Saved data (or a restored backup) in today's shape. */
+function normalize(raw: unknown): LocalData {
+  if (!raw || typeof raw !== 'object' || (raw as LocalData).version !== 1) return EMPTY_LOCAL_DATA;
+  const data = { ...EMPTY_LOCAL_DATA, ...(raw as LocalData) };
+  // No call can be running while the app starts: close any that the app quit in the middle of.
+  return { ...data, calls: data.calls.map((c) => (c.endedAt === null ? { ...c, endedAt: c.lastSeenAt ?? c.startedAt } : c)) };
 }
 
 function save(data: LocalData) {
@@ -108,6 +119,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return id;
       },
       endCall: (callId) => updateCall(callId, (c) => ({ ...c, endedAt: c.endedAt ?? Date.now() })),
+      touchCall: (callId) => updateCall(callId, (c) => ({ ...c, lastSeenAt: Date.now() })),
+      replaceAll: (raw) => change(() => normalize(raw)),
       addAttendee: (callId, name) =>
         updateCall(callId, (c) => (c.attendees.some((a) => a.name === name) ? c : { ...c, attendees: [...c.attendees, { name, joinedAt: Date.now() }] })),
     };

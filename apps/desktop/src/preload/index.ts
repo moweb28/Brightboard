@@ -27,6 +27,10 @@ export interface BrightboardBridge {
   store: {
     load(): Promise<unknown>;
     save(data: unknown): Promise<void>;
+    /** Saves a backup file where the user picks; false if they cancelled. */
+    backup(data: unknown, title: string): Promise<boolean>;
+    /** Reads a backup file the user picks: the data, 'invalid', or null if cancelled. */
+    restore(title: string): Promise<unknown>;
   };
   files: {
     /** Media source id of this app window, for recording what the user sees. */
@@ -61,6 +65,8 @@ const bridge: BrightboardBridge = {
   store: {
     load: () => ipcRenderer.invoke('store:load'),
     save: (data) => ipcRenderer.invoke('store:save', data),
+    backup: (data, title) => ipcRenderer.invoke('store:backup', data, title),
+    restore: (title) => ipcRenderer.invoke('store:restore', title),
   },
   files: {
     windowSource: () => ipcRenderer.invoke('rec:windowSource'),

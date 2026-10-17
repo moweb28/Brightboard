@@ -62,7 +62,7 @@ export function formatSchedule(schedule: { days: number[]; time: string }, lang:
   const time = new Date(2023, 0, 1, h, m).toLocaleTimeString(locale(lang), { hour: 'numeric', minute: '2-digit' });
   const days = weekOrder(lang).filter((d) => schedule.days.includes(d));
   const names = days.length === 7 ? [lang === 'ar' ? 'كل يوم' : 'Every day'] : days.map((d) => weekdayName(d, lang));
-  return `${new Intl.ListFormat(locale(lang), { style: 'short', type: 'conjunction' }).format(names)}, ${time}`;
+  return `${new Intl.ListFormat(locale(lang), { style: 'long', type: 'conjunction' }).format(names)}, ${time}`;
 }
 
 /** "Today", "Tomorrow" or "Thu, Oct 16", for an upcoming meeting. */

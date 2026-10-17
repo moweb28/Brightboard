@@ -12,7 +12,7 @@
   // SQLite-backed classes are the kind the free plan allows. Rooms never write to storage anyway.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
   // Where the invite page sends people without the app (the GitHub Releases page, once there is one).
-  "vars": { "DOWNLOAD_URL": "" }
+  "vars": { "DOWNLOAD_URL": "https://github.com/moweb28/brightboard/releases/latest" }
   // Secrets (set with `npx wrangler secret put NAME`, or in .dev.vars for local runs):
   //   SFU_APP_ID, SFU_APP_TOKEN, TICKET_SECRET, and optionally TURN_APP_ID, TURN_APP_TOKEN
 }

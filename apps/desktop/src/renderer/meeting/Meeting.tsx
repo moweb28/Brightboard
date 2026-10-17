@@ -58,10 +58,10 @@ export function Meeting({ join, password }: { join: JoinInfo; password?: string 
 
 /** The admin's app keeps a local record of each call: when, how long, and who came. */
 function CallHistory({ room, join }: { room: Room; join: JoinInfo }) {
-  const { data, startCall, endCall, addAttendee, setLive } = useStore();
+  const { data, startCall, endCall, touchCall, addAttendee, setLive } = useStore();
   const saved = !!data?.spaces.some((s) => s.id === join.spaceId);
-  const store = useRef({ endCall, addAttendee });
-  store.current = { endCall, addAttendee };
+  const store = useRef({ endCall, touchCall, addAttendee });
+  store.current = { endCall, touchCall, addAttendee };
 
   useEffect(() => {
     setLive(join.roomName, true);
@@ -71,7 +71,9 @@ function CallHistory({ room, join }: { room: Room; join: JoinInfo }) {
     const onMeta = (_prev: string, p: Participant) => !p.isLocal && add(p);
     room.on(RoomEvent.ParticipantConnected, add);
     room.on(RoomEvent.ParticipantMetadataChanged, onMeta);
+    const heartbeat = callId ? setInterval(() => store.current.touchCall(callId), 60_000) : null;
     return () => {
+      if (heartbeat) clearInterval(heartbeat);
       room.off(RoomEvent.ParticipantConnected, add);
       room.off(RoomEvent.ParticipantMetadataChanged, onMeta);
       if (callId) store.current.endCall(callId);

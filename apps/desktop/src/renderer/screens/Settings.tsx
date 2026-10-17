@@ -1,5 +1,5 @@
 import { AVATAR_COLORS } from '@classroom/protocol';
-import { Bell, Check, CircleDot, HardDrive, Languages, Palette, User, Video } from 'lucide-react';
+import { Bell, Check, CircleDot, Download, HardDrive, Languages, Palette, Upload, User, Video } from 'lucide-react';
 import { useState } from 'react';
 import { LanguagePicker, ScenePicker, ThemePicker } from '../components/AppearancePicker';
 import { DeviceCheck } from '../components/DeviceCheck';
@@ -53,11 +53,48 @@ export function SettingsPage() {
             {section === 'audioVideo' && <AudioVideoSection />}
             {section === 'sessions' && <SessionsSection />}
             {section === 'notifications' && <NotificationsSection />}
-            {section === 'data' && <p className="muted">{t.settings.dataNote}</p>}
+            {section === 'data' && <DataSection />}
           </div>
         </div>
       </div>
     </AppShell>
+  );
+}
+
+/** Where the data lives, plus backup and restore (the only way to move spaces to a new computer). */
+function DataSection() {
+  const t = useT();
+  const toast = useToast();
+  const { data, replaceAll } = useStore();
+  const bridge = window.brightboard;
+  const backup = async () => {
+    if (bridge && data && (await bridge.store.backup(data, t.settings.backupSave))) toast({ icon: Check, text: t.settings.backupSaved, tone: 'success' });
+  };
+  const restore = async () => {
+    if (!bridge || !confirm(t.settings.restoreConfirm)) return;
+    const restored = await bridge.store.restore(t.settings.backupRestore);
+    if (restored === null) return;
+    if (restored === 'invalid') return toast({ text: t.settings.restoreInvalid, tone: 'warn' });
+    replaceAll(restored);
+    toast({ icon: Check, text: t.settings.restoreDone, tone: 'success' });
+  };
+  return (
+    <div className="stack">
+      <p className="muted">{t.settings.dataNote}</p>
+      {bridge && (
+        <>
+          <div className="row-wrap">
+            <Button icon={Download} onClick={backup}>
+              {t.settings.backupSave}
+            </Button>
+            <Button variant="secondary" icon={Upload} onClick={restore}>
+              {t.settings.backupRestore}
+            </Button>
+          </div>
+          <p className="muted small">{t.settings.backupHint}</p>
+        </>
+      )}
+    </div>
   );
 }
 

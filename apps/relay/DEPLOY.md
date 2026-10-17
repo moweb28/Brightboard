@@ -45,7 +45,7 @@ VITE_RELAY_URL=https://brightboard.<subdomain>.workers.dev
 Until you do, `npm run build` in the desktop app stops with a reminder. `npm run dev` keeps using the local relay from `.env.development`.
 
 ## Later
-- Once the Windows installer is on GitHub Releases, set `DOWNLOAD_URL` in `wrangler.jsonc` to that page and deploy again.
+- `DOWNLOAD_URL` in `wrangler.jsonc` already points at https://github.com/moweb28/brightboard/releases/latest. If the repo name changes, update it and deploy again.
 - Logs: `npx wrangler tail`. Usage: dashboard → Workers & Pages → brightboard, and Realtime → your app.
 
 ## Security check after deploying
