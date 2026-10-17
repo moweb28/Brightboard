@@ -1,6 +1,6 @@
 import { SPACE_COLORS, SPACE_KINDS, type Schedule, type Space, type SpaceKind } from '@classroom/protocol';
-import { Briefcase, GraduationCap, Megaphone, Sofa, type LucideIcon } from 'lucide-react';
-import { useState } from 'react';
+import { Briefcase, GraduationCap, Megaphone, Sofa, Zap, type LucideIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { randomPassword } from '../lib/call';
 import { useT } from '../lib/settings';
 import { useStore } from '../lib/store';
@@ -10,7 +10,8 @@ import { Button, ColorPicker, Field, Modal, SpaceIcon, Toggle } from './ui';
 
 export const KIND_ICONS: Record<SpaceKind, LucideIcon> = { hangout: Sofa, meeting: Briefcase, class: GraduationCap, event: Megaphone };
 
-export function SpaceFormModal({ existing, onClose, onSaved }: { existing?: Space; onClose: () => void; onSaved: (s: Space) => void }) {
+/** `startNow` is true when the admin chose "Create & start now": the call opens straight away. */
+export function SpaceFormModal({ existing, onClose, onSaved }: { existing?: Space; onClose: () => void; onSaved: (s: Space, startNow: boolean) => void }) {
   const t = useT();
   const { data, createSpace, updateSpace } = useStore();
   // New spaces default to the kind you made last.
@@ -22,15 +23,17 @@ export function SpaceFormModal({ existing, onClose, onSaved }: { existing?: Spac
   const [color, setColor] = useState<string>(existing?.color ?? SPACE_COLORS[(data?.spaces.length ?? 0) % SPACE_COLORS.length]);
   const [needsPassword, setNeedsPassword] = useState(existing ? !!existing.password : initialKind === 'class');
 
+  // Which create button was pressed (a ref: it must be set before the form submits).
+  const startNow = useRef(false);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const fields = { title: title.trim(), picture, schedule, color, kind };
     if (existing) {
       const password = needsPassword ? existing.password || randomPassword() : '';
       updateSpace(existing.id, { ...fields, password });
-      onSaved({ ...existing, ...fields, password });
+      onSaved({ ...existing, ...fields, password }, false);
     } else {
-      onSaved(createSpace({ ...fields, password: needsPassword ? randomPassword() : '' }));
+      onSaved(createSpace({ ...fields, password: needsPassword ? randomPassword() : '' }), startNow.current);
     }
   };
 
@@ -44,9 +47,20 @@ export function SpaceFormModal({ existing, onClose, onSaved }: { existing?: Spac
           <Button variant="ghost" onClick={onClose}>
             {t.common.cancel}
           </Button>
-          <Button form="space-form" disabled={!title.trim()}>
-            {existing ? t.spaceForm.saveChanges : t.spaceForm.create}
-          </Button>
+          {existing ? (
+            <Button form="space-form" disabled={!title.trim()}>
+              {t.spaceForm.saveChanges}
+            </Button>
+          ) : (
+            <>
+              <Button variant="secondary" form="space-form" disabled={!title.trim()} onClick={() => (startNow.current = false)}>
+                {t.spaceForm.create}
+              </Button>
+              <Button form="space-form" icon={Zap} disabled={!title.trim()} onClick={() => (startNow.current = true)}>
+                {t.spaceForm.createAndStart}
+              </Button>
+            </>
+          )}
         </>
       }
     >

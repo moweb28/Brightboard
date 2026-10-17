@@ -5,8 +5,12 @@ import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 type El = ReturnType<ExcalidrawImperativeAPI['getSceneElementsIncludingDeleted']>[number];
 type FreeDraw = El & { points: readonly Pt[] };
 
-const HANDWRITING_IDLE_MS = 1500;
-const MIN_CONFIDENCE = 65;
+const HANDWRITING_IDLE_MS = 1200;
+/** Below this the guess is dropped and the ink stays as drawn. Single letters score lower, so their bar is lower. */
+const MIN_CONFIDENCE = 60;
+const MIN_CONFIDENCE_LETTER = 45;
+/** Writing is scaled so letters are about this tall when read (OCR likes ~100 px letters). */
+const READ_HEIGHT = 110;
 
 /** Highlighter strokes are see-through; they stay free-form marks. */
 const isHighlighter = (stroke: El) => stroke.opacity < 60;
@@ -28,14 +32,23 @@ function cleanShape(stroke: FreeDraw, s: RecognizedShape): El[] {
   ]) as El[];
 }
 
-type Tesseract = { recognize(img: HTMLCanvasElement): Promise<{ data: { text: string; confidence: number } }> };
-let ocr: Promise<Tesseract> | null = null;
-/** Loaded on first use only; downloads the English + Arabic models once. */
-const getOcr = () => (ocr ??= import('tesseract.js').then(({ createWorker }) => createWorker(['eng', 'ara']) as unknown as Promise<Tesseract>));
+type Tesseract = {
+  recognize(img: HTMLCanvasElement): Promise<{ data: { text: string; confidence: number } }>;
+  setParameters(p: Record<string, string>): Promise<unknown>;
+};
+const ocr = new Map<string, Promise<Tesseract>>();
+/** Loaded on first use only (the language model downloads once): English, or Arabic + English in Arabic. */
+const getOcr = (lang: 'en' | 'ar') => {
+  const langs = lang === 'ar' ? ['ara', 'eng'] : ['eng'];
+  const key = langs.join('+');
+  if (!ocr.has(key)) ocr.set(key, import('tesseract.js').then(({ createWorker }) => createWorker(langs) as unknown as Promise<Tesseract>));
+  return ocr.get(key)!;
+};
 
 export interface SmartPenOptions {
   shapes: boolean;
   handwriting: boolean;
+  lang: 'en' | 'ar';
   onReading(busy: boolean): void;
 }
 
@@ -121,15 +134,30 @@ export class SmartPen {
     if (!strokes.length) return;
     this.opts().onReading(true);
     try {
+      const x0 = Math.min(...strokes.map((s) => s.x));
+      const y0 = Math.min(...strokes.map((s) => s.y));
+      const w = Math.max(...strokes.map((s) => s.x + s.width)) - x0;
+      const h = Math.max(...strokes.map((s) => s.y + s.height)) - y0;
+      // One compact mark (like "M") is read as a single letter; anything wider as one line of words.
+      const letter = strokes.length <= 4 && w < h * 1.8;
+      // Solid black ink on white, sized for the reader: chalk or white ink would otherwise vanish.
+      const scale = Math.max(1, Math.min(6, READ_HEIGHT / Math.max(h, 1)));
+      const ink = strokes.map((s) => newElementWith(s, { strokeColor: '#000000', opacity: 100, strokeWidth: Math.max(s.strokeWidth, 1) } as never));
       const canvas = await exportToCanvas({
-        elements: strokes,
+        elements: ink,
         appState: { exportBackground: true, viewBackgroundColor: '#ffffff' } as never,
         files: null,
         exportPadding: 24,
+        getDimensions: (width: number, height: number) => ({ width: width * scale, height: height * scale, scale }),
       });
-      const { data } = await (await getOcr()).recognize(canvas);
-      const text = data.text.replace(/\s+/g, ' ').trim();
-      if (data.confidence < MIN_CONFIDENCE || !text) return;
+      const reader = await getOcr(this.opts().lang);
+      // "Single word" handles one letter or a short word; wider writing is read as one line.
+      await reader.setParameters({ tessedit_pageseg_mode: letter ? '8' : '7' });
+      const { data } = await reader.recognize(canvas);
+      let text = data.text.replace(/\s+/g, ' ').trim();
+      // A single drawn letter sometimes comes back doubled ("MM"): one compact stroke is one letter.
+      if (letter && strokes.length === 1 && text.length > 1 && [...text].every((ch) => ch === text[0])) text = text[0];
+      if (data.confidence < (letter ? MIN_CONFIDENCE_LETTER : MIN_CONFIDENCE) || !text) return;
       const x = Math.min(...strokes.map((s) => s.x));
       const y = Math.min(...strokes.map((s) => s.y));
       const height = Math.max(...strokes.map((s) => s.y + s.height)) - y;

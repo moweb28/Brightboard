@@ -21,6 +21,9 @@ The admin opens it from the dock; it takes the stage for everyone. Text, picture
 **mind maps** (Mind map button, then Tab = branch, Enter = sibling, Delete = remove), export to PNG, and a
 **Smart pen** for mouse users: rough circles/boxes/lines/arrows/triangles snap to clean shapes (Ctrl+Z restores the
 stroke), other strokes are smoothed, and optional handwriting → text (local OCR, best with neat print).
+Picking the board's **pen** shows a pen bar (pen, marker, highlighter, chalk, colors, thickness, *Clean shapes*,
+*Writing → text*); picking **text** shows fonts, sizes and colors. **Full screen** gives the board the whole screen.
+**Writing → text** reads letters and words drawn with the mouse (English, or Arabic + English) and types them.
 **Pens & text**: pen, marker, highlighter and chalk, with colors and thickness; seven fonts (hand-drawn, normal,
 headline, playful, clean, sketchy, code) up to 3XL. The admin picks the **board look** for everyone: whiteboard,
 blackboard, chalkboard, paper, grid paper or blueprint (dark boards switch to light ink).

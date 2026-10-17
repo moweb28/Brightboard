@@ -1,13 +1,13 @@
 import { BOARD_DESIGNS, type BoardDesign } from '@classroom/protocol';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-import { Check, Highlighter, LayoutTemplate, Pen, PenLine, PenTool, Type } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Check, ChevronDown, Download, GitBranch, Highlighter, MoreHorizontal, Pen, PenLine, PenTool, Shapes, Type } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { Dict } from '../../lib/i18n';
 
 /**
- * Extra whiteboard tools: pen kinds (pen, marker, highlighter, chalk) with colors and thickness,
- * fonts and big text sizes, and board looks. They set Excalidraw's "next item" style, so they
- * work with everything Excalidraw already does (undo, sync, export).
+ * Extra whiteboard tools. Picking Excalidraw's pen or text tool shows a bar of styles right
+ * under the toolbar (pen kinds, colors, thickness / fonts, sizes, colors). They set Excalidraw's
+ * "next item" style, so undo, sync and export work as usual. Less-used actions live in "More".
  */
 
 type Api = ExcalidrawImperativeAPI;
@@ -40,11 +40,11 @@ const PENS: Record<PenKind, { width: number; opacity: number; icon: typeof Pen }
   highlighter: { width: 5, opacity: 35, icon: Highlighter },
   chalk: { width: 1.5, opacity: 85, icon: PenLine },
 };
-const INK_COLORS = ['#e03131', '#f08c00', '#2f9e44', '#1971c2', '#7048e8', '#c2255c', '#0c8599'];
+const INK_COLORS = ['#e03131', '#f08c00', '#2f9e44', '#1971c2', '#7048e8', '#c2255c'];
 const HIGHLIGHTS = ['#fcc419', '#94d82d', '#ff8787', '#74c0fc', '#da77f2'];
 const WIDTHS = [0.5, 1, 2, 4];
 
-/** Excalidraw's built-in font ids, with the name each shows in its own typeface. */
+/** Excalidraw's built-in font ids, each named in its own typeface. */
 const FONTS: { id: number; css: string; key: keyof Dict['board']['fonts'] }[] = [
   { id: 5, css: 'Excalifont', key: 'hand' },
   { id: 6, css: 'Nunito', key: 'normal' },
@@ -63,170 +63,217 @@ const SIZES: [string, number][] = [
   ['3XL', 72],
 ];
 
-/** A board-bar button that opens a panel; closes on outside click or Esc. */
-function Popover({ icon, label, title, active, children }: { icon: ReactNode; label: string; title: string; active?: boolean; children: (close: () => void) => ReactNode }) {
-  const [open, setOpen] = useState(false);
+/** Closes on outside click or Esc. */
+function useDismiss(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', esc);
+    const onDown = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && close();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', esc);
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, close]);
+  return ref;
+}
+
+function Swatches({ colors, current, onPick, label }: { colors: string[]; current: string; onPick(c: string): void; label: string }) {
   return (
-    <div className="menu-anchor" ref={ref}>
-      <button className={`board-btn ${open || active ? 'is-active' : ''}`} onClick={() => setOpen((o) => !o)} title={title} aria-expanded={open}>
-        {icon} <span className="board-btn-label">{label}</span>
-      </button>
-      {open && <div className="board-pop">{children(() => setOpen(false))}</div>}
+    <div className="swatches" role="group" aria-label={label}>
+      {colors.map((c) => {
+        const on = current.toLowerCase() === c.toLowerCase();
+        return (
+          <button key={c} className={`swatch ${on ? 'is-on' : ''}`} style={{ background: c }} onClick={() => onPick(c)} aria-label={c} aria-pressed={on}>
+            {on && <Check size={13} />}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-interface PensProps {
+/** What kind of pen the current style is (to show which one is picked). */
+function penKindOf(opacity: number, width: number, color: string): PenKind {
+  if (opacity < 60) return 'highlighter';
+  if (opacity < 100 && color.toLowerCase() === LIGHT_INK) return 'chalk';
+  return width >= 2 ? 'marker' : 'pen';
+}
+
+interface PenBarProps {
   t: Dict;
-  api: () => Api | null;
+  api: Api;
   design: BoardDesign;
   smart: { shapes: boolean; handwriting: boolean; toggleShapes(): void; toggleHandwriting(): void };
 }
 
-/** Pens (kind, color, thickness), the smart pen switches, and text (font, size). */
-export function PensAndText({ t, api, design, smart }: PensProps) {
-  const [kind, setKind] = useState<PenKind>('pen');
-  const [ink, setInk] = useState<string>(inkFor(design));
-  const [highlight, setHighlight] = useState(HIGHLIGHTS[0]);
-  const [width, setWidth] = useState(PENS.pen.width);
-  const [font, setFont] = useState(5);
-  const [size, setSize] = useState(20);
+/** Shown while the pen tool is picked: pen kind, color, thickness, and the smart pen switches. */
+export function PenBar({ t, api, design, smart }: PenBarProps) {
+  const st = api.getAppState();
+  const [kind, setKind] = useState<PenKind>(() => penKindOf(st.currentItemOpacity, st.currentItemStrokeWidth, st.currentItemStrokeColor));
+  const [color, setColor] = useState(st.currentItemStrokeColor);
+  const [width, setWidth] = useState(st.currentItemStrokeWidth);
+  const lastInk = useRef(kind === 'highlighter' || kind === 'chalk' ? inkFor(design) : st.currentItemStrokeColor);
+  const lastHighlight = useRef(kind === 'highlighter' ? st.currentItemStrokeColor : HIGHLIGHTS[0]);
 
-  // A new board look brings ink that shows up on it.
-  useEffect(() => setInk(inkFor(design)), [design]);
-
-  const choosePen = (k: PenKind, opts: { color?: string; w?: number } = {}) => {
-    const a = api();
-    if (!a) return;
-    const p = PENS[k];
-    const w = opts.w ?? (k === kind ? width : p.width);
-    const color = opts.color ?? (k === 'highlighter' ? highlight : k === 'chalk' ? LIGHT_INK : ink);
+  const apply = (k: PenKind, c: string, w: number) => {
     setKind(k);
+    setColor(c);
     setWidth(w);
-    a.setActiveTool({ type: 'freedraw' });
-    a.updateScene({ appState: { currentItemStrokeColor: color, currentItemStrokeWidth: w, currentItemOpacity: p.opacity } as never });
+    if (k === 'highlighter') lastHighlight.current = c;
+    else if (k !== 'chalk') lastInk.current = c;
+    api.updateScene({ appState: { currentItemStrokeColor: c, currentItemStrokeWidth: w, currentItemOpacity: PENS[k].opacity } as never });
   };
-  const pickColor = (c: string) => {
-    if (kind === 'highlighter') setHighlight(c);
-    else setInk(c);
-    choosePen(kind === 'chalk' ? 'pen' : kind, { color: c });
-  };
-  const chooseText = (f: number, s: number) => {
-    const a = api();
-    if (!a) return;
+  const pickKind = (k: PenKind) => apply(k, k === 'highlighter' ? lastHighlight.current : k === 'chalk' ? LIGHT_INK : lastInk.current, PENS[k].width);
+  const pickColor = (c: string) => apply(kind === 'chalk' ? 'pen' : kind, c, width);
+  const colors = kind === 'highlighter' ? HIGHLIGHTS : [inkFor(design), ...INK_COLORS];
+
+  return (
+    <div className="board-ctx" role="toolbar" aria-label={t.board.pens}>
+      <div className="ctx-group">
+        {(Object.keys(PENS) as PenKind[]).map((k) => {
+          const Icon = PENS[k].icon;
+          return (
+            <button key={k} className={`ctx-btn ${kind === k ? 'is-on' : ''}`} onClick={() => pickKind(k)} title={t.board.penKinds[k]}>
+              <Icon size={16} />
+              <span className="ctx-label">{t.board.penKinds[k]}</span>
+            </button>
+          );
+        })}
+      </div>
+      <span className="ctx-sep" />
+      <Swatches colors={colors} current={color} onPick={pickColor} label={t.board.color} />
+      <span className="ctx-sep" />
+      <div className="ctx-group" role="group" aria-label={t.board.thickness}>
+        {WIDTHS.map((w, i) => (
+          <button key={w} className={`ctx-btn ctx-width ${width === w ? 'is-on' : ''}`} onClick={() => apply(kind, color, w)} title={t.board.widths[i]}>
+            <span style={{ height: Math.max(2, w * 3) }} />
+          </button>
+        ))}
+      </div>
+      <span className="ctx-sep" />
+      <button className={`ctx-btn ${smart.shapes ? 'is-on' : ''}`} onClick={smart.toggleShapes} title={t.board.smartShapesHint} aria-pressed={smart.shapes}>
+        <Shapes size={16} />
+        <span className="ctx-label">{t.board.smartShort}</span>
+      </button>
+      <button className={`ctx-btn ${smart.handwriting ? 'is-on' : ''}`} onClick={smart.toggleHandwriting} title={t.board.handwritingHint} aria-pressed={smart.handwriting}>
+        <Type size={16} />
+        <span className="ctx-label">{t.board.handwritingShort}</span>
+      </button>
+    </div>
+  );
+}
+
+/** Shown while the text tool is picked: font, size and color for what you type next. */
+export function TextBar({ t, api, design }: { t: Dict; api: Api; design: BoardDesign }) {
+  const st = api.getAppState();
+  const [font, setFont] = useState<number>(st.currentItemFontFamily);
+  const [size, setSize] = useState<number>(st.currentItemFontSize);
+  const [color, setColor] = useState<string>(st.currentItemOpacity < 100 ? inkFor(design) : st.currentItemStrokeColor);
+  const [fontsOpen, setFontsOpen] = useState(false);
+  const fontsRef = useDismiss(fontsOpen, () => setFontsOpen(false));
+
+  const apply = (f: number, s: number, c: string) => {
     setFont(f);
     setSize(s);
-    a.setActiveTool({ type: 'text' });
-    a.updateScene({ appState: { currentItemFontFamily: f, currentItemFontSize: s, currentItemStrokeColor: ink, currentItemOpacity: 100 } as never });
+    setColor(c);
+    // Text is always solid, whatever pen was used last.
+    api.updateScene({ appState: { currentItemFontFamily: f, currentItemFontSize: s, currentItemStrokeColor: c, currentItemOpacity: 100 } as never });
   };
+  // Typing right after the highlighter would otherwise give see-through text.
+  useEffect(() => apply(font, size, color), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const colors = kind === 'highlighter' ? HIGHLIGHTS : [inkFor(design), ...INK_COLORS];
-  const current = kind === 'highlighter' ? highlight : ink;
+  const current = FONTS.find((f) => f.id === font) ?? FONTS[0];
   return (
-    <Popover icon={<Pen size={16} />} label={t.board.pens} title={t.board.pensTitle}>
-      {() => (
-        <div className="pens">
-          <p className="pop-title">{t.board.pens}</p>
-          <div className="pen-kinds">
-            {(Object.keys(PENS) as PenKind[]).map((k) => {
-              const Icon = PENS[k].icon;
-              return (
-                <button key={k} className={`pen-kind ${kind === k ? 'is-on' : ''}`} onClick={() => choosePen(k)}>
-                  <Icon size={18} />
-                  {t.board.penKinds[k]}
-                </button>
-              );
-            })}
-          </div>
-          <div className="swatches" role="group" aria-label={t.board.color}>
-            {colors.map((c) => (
-              <button key={c} className={`swatch ${current === c ? 'is-on' : ''}`} style={{ background: c }} onClick={() => pickColor(c)} aria-label={c}>
-                {current === c && <Check size={14} />}
-              </button>
-            ))}
-          </div>
-          <div className="widths" role="group" aria-label={t.board.thickness}>
-            {WIDTHS.map((w, i) => (
-              <button key={w} className={`width ${width === w ? 'is-on' : ''}`} onClick={() => choosePen(kind, { w })} title={t.board.widths[i]}>
-                <span style={{ height: Math.max(2, w * 3.2) }} />
-              </button>
-            ))}
-          </div>
-          <label className="pop-check">
-            <input type="checkbox" checked={smart.shapes} onChange={smart.toggleShapes} />
-            <span>
-              <strong>{t.board.smartShapes}</strong>
-              <small>{t.board.smartShapesHint}</small>
-            </span>
-          </label>
-          <label className="pop-check">
-            <input type="checkbox" checked={smart.handwriting} onChange={smart.toggleHandwriting} />
-            <span>
-              <strong>{t.board.handwriting}</strong>
-              <small>{t.board.handwritingHint}</small>
-            </span>
-          </label>
-
-          <p className="pop-title">
-            <Type size={14} /> {t.board.text}
-          </p>
-          <div className="fonts">
+    <div className="board-ctx" role="toolbar" aria-label={t.board.text}>
+      <div className="menu-anchor" ref={fontsRef}>
+        <button className="ctx-btn ctx-font" onClick={() => setFontsOpen((o) => !o)} aria-expanded={fontsOpen} style={{ fontFamily: `'${current.css}', 'Segoe UI', sans-serif` }}>
+          {t.board.fonts[current.key]}
+          <ChevronDown size={14} />
+        </button>
+        {fontsOpen && (
+          <div className="ctx-list">
             {FONTS.map((f) => (
-              <button key={f.id} className={`font ${font === f.id ? 'is-on' : ''}`} style={{ fontFamily: `'${f.css}', 'Segoe UI', sans-serif` }} onClick={() => chooseText(f.id, size)}>
+              <button
+                key={f.id}
+                className={`ctx-item ${font === f.id ? 'is-on' : ''}`}
+                style={{ fontFamily: `'${f.css}', 'Segoe UI', sans-serif` }}
+                onClick={() => {
+                  apply(f.id, size, color);
+                  setFontsOpen(false);
+                }}
+              >
                 {t.board.fonts[f.key]}
               </button>
             ))}
           </div>
-          <div className="sizes">
-            {SIZES.map(([label, s]) => (
-              <button key={s} className={`size ${size === s ? 'is-on' : ''}`} onClick={() => chooseText(font, s)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </Popover>
+        )}
+      </div>
+      <span className="ctx-sep" />
+      <div className="ctx-group" role="group" aria-label={t.board.textSize}>
+        {SIZES.map(([label, s]) => (
+          <button key={s} className={`ctx-btn ctx-size ${size === s ? 'is-on' : ''}`} onClick={() => apply(font, s, color)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <span className="ctx-sep" />
+      <Swatches colors={[inkFor(design), ...INK_COLORS]} current={color} onPick={(c) => apply(font, size, c)} label={t.board.color} />
+    </div>
   );
 }
 
-/** Admin only: the look everyone's board has. */
-export function DesignPicker({ t, design, onPick }: { t: Dict; design: BoardDesign; onPick(d: BoardDesign): void }) {
+interface MoreProps {
+  t: Dict;
+  amHost: boolean;
+  canDraw: boolean;
+  design: BoardDesign;
+  onDesign(d: BoardDesign): void;
+  onMindMap(): void;
+  onExport(): void;
+}
+
+/** Mind map, save as image, and (admin) the board look. */
+export function MoreMenu({ t, amHost, canDraw, design, onDesign, onMindMap, onExport }: MoreProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useDismiss(open, () => setOpen(false));
+  const run = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
   return (
-    <Popover icon={<LayoutTemplate size={16} />} label={t.board.design} title={t.board.designTitle}>
-      {(close) => (
-        <div className="designs">
-          <p className="pop-title">{t.board.designTitle}</p>
-          <div className="design-list">
-            {BOARD_DESIGNS.map((d) => (
-              <button
-                key={d}
-                className={`design ${design === d ? 'is-on' : ''}`}
-                onClick={() => {
-                  onPick(d);
-                  close();
-                }}
-              >
-                <span className={`design-swatch design-${d}`} />
-                {t.board.designs[d]}
-              </button>
-            ))}
-          </div>
-          <p className="pop-note">{t.board.designNote}</p>
+    <div className="menu-anchor" ref={ref}>
+      <button className={`board-btn ${open ? 'is-active' : ''}`} onClick={() => setOpen((o) => !o)} title={t.board.more} aria-label={t.board.more} aria-expanded={open}>
+        <MoreHorizontal size={16} />
+      </button>
+      {open && (
+        <div className="board-pop">
+          {canDraw && (
+            <button className="pop-row" onClick={run(onMindMap)} title={t.board.mindHint}>
+              <GitBranch size={16} /> {t.board.mindMap}
+            </button>
+          )}
+          <button className="pop-row" onClick={run(onExport)}>
+            <Download size={16} /> {t.board.exportPng}
+          </button>
+          {amHost && (
+            <>
+              <p className="pop-title">{t.board.designTitle}</p>
+              <div className="design-list">
+                {BOARD_DESIGNS.map((d) => (
+                  <button key={d} className={`design ${design === d ? 'is-on' : ''}`} onClick={run(() => onDesign(d))}>
+                    <span className={`design-swatch design-${d}`} />
+                    {t.board.designs[d]}
+                  </button>
+                ))}
+              </div>
+              <p className="pop-note">{t.board.designNote}</p>
+            </>
+          )}
         </div>
       )}
-    </Popover>
+    </div>
   );
 }

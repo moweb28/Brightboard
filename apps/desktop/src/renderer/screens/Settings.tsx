@@ -3,6 +3,7 @@ import { Bell, Check, CircleDot, Download, HardDrive, Languages, Palette, Upload
 import { useState } from 'react';
 import { LanguagePicker, ScenePicker, ThemePicker } from '../components/AppearancePicker';
 import { DeviceCheck } from '../components/DeviceCheck';
+import { NameTagPicker } from '../components/NameTagPicker';
 import { AppShell } from '../components/layout';
 import { useToast } from '../components/toast';
 import { PicturePicker } from '../components/PicturePicker';
@@ -129,6 +130,7 @@ function AppearanceSection() {
   const t = useT();
   return (
     <div className="stack">
+      <NameTagPicker />
       <div className="field">
         <span className="field-label">{t.settings.themeMode}</span>
         <ThemePicker />

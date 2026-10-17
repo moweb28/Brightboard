@@ -2,10 +2,10 @@ import { convertToExcalidrawElements, Excalidraw, exportToBlob } from '@excalidr
 import '@excalidraw/excalidraw/index.css';
 import type { BinaryFileData, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import type { BoardDesign } from '@classroom/protocol';
-import { Download, GitBranch, Loader2, Lock, LockOpen, Scissors, X } from 'lucide-react';
+import { Loader2, Lock, LockOpen, Maximize2, Minimize2, Scissors, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings, useT } from '../../lib/settings';
-import { applyDesign, DesignPicker, PensAndText } from './BoardTools';
+import { applyDesign, MoreMenu, PenBar, TextBar } from './BoardTools';
 import { addIdea, insertMindMap, removeIdea, selectedNode } from './mindmapOps';
 import { SmartPen } from './smartPen';
 import type { BoardSync } from './useBoardSync';
@@ -32,9 +32,29 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
   settingsRef.current = settings;
 
   const pen = useMemo(
-    () => new SmartPen(() => api.current, () => ({ shapes: settingsRef.current.boardShapes, handwriting: settingsRef.current.boardHandwriting, onReading: setReading })),
+    () => new SmartPen(() => api.current, () => ({ shapes: settingsRef.current.boardShapes, handwriting: settingsRef.current.boardHandwriting, lang: settingsRef.current.lang, onReading: setReading })),
     [],
   );
+  // Full screen: the board alone fills the screen (Esc or the button again exits).
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === boardRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      if (document.fullscreenElement === boardRef.current) void document.exitFullscreen().catch(() => undefined);
+    };
+  }, []);
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    else void boardRef.current?.requestFullscreen().catch(() => undefined);
+  };
+
+  // Picking the pen or text tool shows its style bar under the toolbar.
+  const [tool, setTool] = useState('selection');
+  const toolRef = useRef(tool);
+
   // The admin's chosen look, shared with everyone.
   const [design, setDesign] = useState<BoardDesign>(sync.store.current.design);
   useEffect(() => sync.onDesign(setDesign), [sync]);
@@ -110,7 +130,7 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
   };
 
   return (
-    <div className={`board ${viewOnly ? 'is-view-only' : ''} ${design !== 'auto' ? 'has-design' : ''}`} onKeyDownCapture={onKeyDownCapture}>
+    <div className={`board ${viewOnly ? 'is-view-only' : ''} ${design !== 'auto' ? 'has-design' : ''} tool-${tool}`} ref={boardRef} onKeyDownCapture={onKeyDownCapture}>
       <Excalidraw
         excalidrawAPI={(a) => {
           api.current = a;
@@ -125,8 +145,13 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
         viewModeEnabled={viewOnly}
         name={title}
         UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false, toggleTheme: false, changeViewBackgroundColor: true } }}
-        onChange={(elements, _appState, files) => {
+        onChange={(elements, appState, files) => {
           sync.onLocalChange(elements as never, files);
+          const active = appState.activeTool.type;
+          if (active !== toolRef.current) {
+            toolRef.current = active;
+            setTool(active);
+          }
         }}
         renderTopRightUI={() => (
           <div className="board-actions">
@@ -140,28 +165,18 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
                 <Scissors size={16} /> <span className="board-btn-label">{t.board.snip}</span>
               </button>
             )}
-            {!viewOnly && (
-              <button className="board-btn" onClick={() => api.current && insertMindMap(api.current, t.board.rootText)} title={t.board.mindHint}>
-                <GitBranch size={16} /> <span className="board-btn-label">{t.board.mindMap}</span>
-              </button>
-            )}
-            {!viewOnly && (
-              <PensAndText
-                t={t}
-                api={() => api.current}
-                design={design}
-                smart={{
-                  shapes: settings.boardShapes,
-                  handwriting: settings.boardHandwriting,
-                  toggleShapes: () => set('boardShapes', !settings.boardShapes),
-                  toggleHandwriting: () => set('boardHandwriting', !settings.boardHandwriting),
-                }}
-              />
-            )}
-            {amHost && <DesignPicker t={t} design={design} onPick={pickDesign} />}
-            <button className="board-btn" onClick={exportPng} title={t.board.exportPng}>
-              <Download size={16} />
+            <button className={`board-btn ${fullscreen ? 'is-active' : ''}`} onClick={toggleFullscreen} title={fullscreen ? t.board.exitFullscreen : t.board.fullscreen} aria-label={fullscreen ? t.board.exitFullscreen : t.board.fullscreen}>
+              {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
+            <MoreMenu
+              t={t}
+              amHost={amHost}
+              canDraw={!viewOnly}
+              design={design}
+              onDesign={pickDesign}
+              onMindMap={() => api.current && insertMindMap(api.current, t.board.rootText)}
+              onExport={() => void exportPng()}
+            />
             {amHost && (
               <button className={`board-btn ${locked ? 'is-active' : ''}`} onClick={onToggleLock} title={locked ? t.board.unlock : t.board.lock}>
                 {locked ? <Lock size={16} /> : <LockOpen size={16} />}
@@ -175,6 +190,20 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
           </div>
         )}
       />
+      {!viewOnly && tool === 'freedraw' && api.current && (
+        <PenBar
+          t={t}
+          api={api.current}
+          design={design}
+          smart={{
+            shapes: settings.boardShapes,
+            handwriting: settings.boardHandwriting,
+            toggleShapes: () => set('boardShapes', !settings.boardShapes),
+            toggleHandwriting: () => set('boardHandwriting', !settings.boardHandwriting),
+          }}
+        />
+      )}
+      {!viewOnly && tool === 'text' && api.current && <TextBar t={t} api={api.current} design={design} />}
       {viewOnly && <div className="board-note">{t.board.lockedNote}</div>}
     </div>
   );

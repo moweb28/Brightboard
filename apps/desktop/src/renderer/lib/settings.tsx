@@ -33,10 +33,15 @@ export interface Settings {
   boardHandwriting: boolean;
   /** Admin: the board look used when a whiteboard opens (everyone sees it). */
   boardDesign: BoardDesign;
+  /** How names show on video tiles (just for you). */
+  nameTags: NameTagStyle;
   /** Transcript: who is transcribed and which speech model. */
   transcriptMode: 'me' | 'everyone';
   transcriptModel: 'standard' | 'accurate';
 }
+
+export const NAME_TAG_STYLES = ['tag', 'bar', 'big', 'minimal', 'hidden'] as const;
+export type NameTagStyle = (typeof NAME_TAG_STYLES)[number];
 
 const DEFAULTS: Settings = {
   theme: 'light',
@@ -57,6 +62,7 @@ const DEFAULTS: Settings = {
   boardShapes: true,
   boardHandwriting: false,
   boardDesign: 'auto',
+  nameTags: 'tag',
   transcriptMode: 'me',
   transcriptModel: 'standard',
 };

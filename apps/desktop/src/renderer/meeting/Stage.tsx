@@ -108,7 +108,7 @@ function Tile({ trackRef, size, meta, amHost, pinned, setPinned, moderate, remot
   return (
     <div
       style={{ '--ring': colorOf(p) } as React.CSSProperties}
-      className={`tile tile-${size} ${speaking && !isShare ? 'is-speaking' : ''} ${isShare ? 'is-share' : ''}`}
+      className={`tile tile-${size} names-${settings.nameTags} ${speaking && !isShare ? 'is-speaking' : ''} ${isShare ? 'is-share' : ''}`}
       onDoubleClick={() => !isShare && setPinned(pinned === p.identity ? null : p.identity)}
     >
       {hasVideo ? (

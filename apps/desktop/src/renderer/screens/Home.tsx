@@ -214,9 +214,11 @@ export function Home({ newSpace }: { newSpace?: boolean }) {
       {creating && (
         <SpaceFormModal
           onClose={() => setCreating(false)}
-          onSaved={(s) => {
+          onSaved={(s, startNow) => {
             setCreating(false);
-            setInviting(s);
+            // Live right away (invite from inside the call), or show the invite to send first.
+            if (startNow) void openCall({ admin: s });
+            else setInviting(s);
           }}
         />
       )}
