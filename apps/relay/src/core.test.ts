@@ -265,11 +265,11 @@ describe('defenses', () => {
     for (let i = 0; i < 1000; i++) await room.message(g.id, { t: 'send', topic: 'chat', data: i });
     const got = a.all('msg').length;
     expect(got).toBeGreaterThan(100);
-    expect(got).toBeLessThanOrEqual(201);
+    expect(got).toBeLessThanOrEqual(401);
     clock += 1000; // a second later the guest can talk again
     await room.message(g.id, { t: 'send', topic: 'chat', data: 'ok' });
     expect(a.last('msg')?.data).toBe('ok');
-    for (let i = 0; i < 2500; i++) await room.message(g.id, { t: 'send', topic: 'chat', data: i });
+    for (let i = 0; i < 3500; i++) await room.message(g.id, { t: 'send', topic: 'chat', data: i });
     expect(g.closed).toBe(true);
   });
 
@@ -279,6 +279,33 @@ describe('defenses', () => {
     expect(a.last('welcome')!.space.title).toHaveLength(80);
     await join({ t: 'hello', name: 'x', color: 'red;background:url(https://evil.example)', picture: 'data:image/svg+xml,<svg onload=alert(1)>' });
     expect(a.last('peer')!.peer).toMatchObject({ color: '#4f46e5', picture: null });
+  });
+
+  it('lets an admitted guest come back after a dropped connection, skipping the waiting room', async () => {
+    const a = await join(adminHello({ settings: { waitingRoom: true, muteOnJoin: false, guestsCanShare: false, chatEnabled: true } }));
+    const g = await join(guestHello());
+    const id = g.last('welcome')!.you.id;
+    await room.message(a.id, { t: 'admin', action: { action: 'admit', identity: id } });
+    const pass = g.last('welcome')!.resume!;
+    expect(pass).toBeTruthy();
+    room.disconnect(g.id); // wifi drops
+    const back = await join({ ...guestHello(), resume: pass } as ClientMessage);
+    expect(back.last('welcome')!.you).toMatchObject({ id, waiting: false });
+    expect(back.last('welcome')!.ticket).toBeTruthy();
+    // A made-up pass, or one used after removal, gets the normal waiting room.
+    expect((await join({ ...guestHello('x'), resume: 'nope' } as ClientMessage)).last('welcome')!.you.waiting).toBe(true);
+    await room.message(a.id, { t: 'admin', action: { action: 'remove', identity: id } });
+    expect((await join({ ...guestHello(), resume: pass } as ClientMessage)).last('welcome')!.you.waiting).toBe(true);
+  });
+
+  it('expires resume passes after a few minutes', async () => {
+    await join(adminHello({ settings: { waitingRoom: true, muteOnJoin: false, guestsCanShare: false, chatEnabled: true } }));
+    const g = await join(guestHello());
+    await room.message('c1', { t: 'admin', action: { action: 'admit', identity: g.last('welcome')!.you.id } });
+    const pass = g.last('welcome')!.resume!;
+    room.disconnect(g.id);
+    clock += 4 * 60_000;
+    expect((await join({ ...guestHello(), resume: pass } as ClientMessage)).last('welcome')!.you.waiting).toBe(true);
   });
 
   it('honors media passes only for people still in the room', async () => {

@@ -100,6 +100,8 @@ export class Room {
   private ws: WebSocket | null = null;
   private partyTracks: PartyTracks | null = null;
   private ticket: string | null = null;
+  /** From the relay's welcome: lets a dropped connection come back without the waiting room. */
+  private resume: string | undefined;
   private outgoing = new Map<TrackKind, Outgoing>();
   private localTracks: PeerTracks = {};
   private incoming = new Map<string, Incoming>();
@@ -163,7 +165,7 @@ export class Room {
     const ws = new WebSocket(wsUrl(this.config.relayUrl, this.config.code));
     this.ws = ws;
     ws.onopen = () => {
-      ws.send(JSON.stringify(this.config.hello));
+      ws.send(JSON.stringify(this.resume ? { ...this.config.hello, resume: this.resume } : this.config.hello));
       this.pingTimer ??= setInterval(() => this.raw({ t: 'ping' }), 25_000);
     };
     ws.onmessage = (e) => {
@@ -261,6 +263,7 @@ export class Room {
     local.applyInfo(msg.you);
     this.metadata = JSON.stringify(msg.room);
     this.space = msg.space;
+    this.resume = msg.resume ?? this.resume;
 
     // A new pass (first join, admitted from the waiting room, or after reconnecting) means a fresh media session.
     if (msg.ticket && msg.ticket !== this.ticket) {

@@ -112,7 +112,7 @@ const realKey = 'r'.repeat(48);
   for (let i = 0; i < 2000; i++) send(g, { t: 'send', topic: 'chat', data: { s: 'spam' + i } });
   await sleep(2000);
   const got = h.msgs.filter((m) => m.t === 'msg').length;
-  report('message flood limit', got > 400, `host received ${got}/2000 spam messages`);
+  report('message flood limit', got > 600, `host received ${got}/2000 spam messages`);
   g.close();
   h.close();
 }

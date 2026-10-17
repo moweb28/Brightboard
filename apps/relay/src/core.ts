@@ -41,11 +41,13 @@ const WRONG_PASSWORD_WINDOW = 10 * 60_000;
 const MAX_CONNS = MAX_PEERS + 25;
 /** A socket must join (or check/claim) within this time. */
 const HELLO_TIMEOUT = 10_000;
-/** Per person: steady messages per second, and the burst allowed on top (whiteboard drawing is chatty). */
-const RATE_PER_SEC = 40;
-const RATE_BURST = 200;
+/** Per person: steady messages per second and the burst on top (remote-control mouse moves run at ~60/s). */
+const RATE_PER_SEC = 100;
+const RATE_BURST = 400;
 /** Dropping this many messages from one person means they're flooding on purpose: disconnect them. */
-const FLOOD_DROPS = 2000;
+const FLOOD_DROPS = 3000;
+/** After a dropped connection, an admitted guest can come straight back (no waiting room) for this long. */
+const RESUME_MS = 3 * 60_000;
 
 const SPACE_KINDS = ['hangout', 'meeting', 'class', 'event'] as const;
 const DEFAULT_COLOR = '#4f46e5';
@@ -60,6 +62,8 @@ export class RoomCore {
   private rates = new Map<string, { tokens: number; at: number; dropped: number }>();
   /** Connections whose admin hello is being checked, so a second hello can't slip in meanwhile. */
   private joining = new Set<string>();
+  /** Resume passes of admitted guests: their id, and when the pass runs out once they've dropped (null while connected). */
+  private resumes = new Map<string, { id: string; canShare: boolean; expires: number | null }>();
   /** Peers by connection id; only connections that said hello. */
   private peers = new Map<string, PeerInfo>();
   private adminKey: string | null = null;
@@ -118,6 +122,7 @@ export class RoomCore {
     const peer = this.peers.get(connId);
     if (!peer) return this.forgetIfEmpty();
     this.peers.delete(connId);
+    for (const r of this.resumes.values()) if (r.id === peer.id) r.expires = this.opts.now() + RESUME_MS;
     this.toWatchers(peer, { t: 'left', id: peer.id });
     // Recording and transcripts run in the admin's app, so they stop with it.
     if (peer.role === 'host' && (this.meta.recording || this.meta.transcribing)) {
@@ -193,9 +198,13 @@ export class RoomCore {
       }
       peer = { ...base, id: `a-${crypto.randomUUID().slice(0, 8)}`, role: 'host', waiting: false, canShare: true };
     } else {
-      const problem = this.guestProblem(conn.ip, msg.password) ?? (this.peers.size >= MAX_PEERS ? 'full' : null);
+      const back = this.takeResume(msg.resume);
+      let problem = this.guestProblem(conn.ip, msg.password) ?? (this.peers.size >= MAX_PEERS ? 'full' : null);
+      if (problem === 'locked' && back) problem = null; // someone already in the call can come back to a locked room
       if (problem) return this.refuse(conn, problem);
-      peer = { ...base, id: `g-${crypto.randomUUID().slice(0, 8)}`, role: 'guest', waiting: this.meta.waitingRoom, canShare: this.meta.guestsCanShare };
+      peer = back
+        ? { ...base, id: back.id, role: 'guest', waiting: false, canShare: back.canShare }
+        : { ...base, id: `g-${crypto.randomUUID().slice(0, 8)}`, role: 'guest', waiting: this.meta.waitingRoom, canShare: this.meta.guestsCanShare };
     }
 
     this.peers.set(conn.id, peer);
@@ -260,6 +269,31 @@ export class RoomCore {
     return this.meta.locked ? 'locked' : null;
   }
 
+  /** A valid resume pass, with any stale connection still holding that id closed. */
+  private takeResume(token: unknown) {
+    const r = typeof token === 'string' ? this.resumes.get(token) : undefined;
+    if (!r || (r.expires !== null && r.expires < this.opts.now())) return null;
+    const stale = this.byPeerId(r.id);
+    if (stale) {
+      this.conns.get(stale[0])?.close();
+      this.disconnect(stale[0]);
+    }
+    r.expires = null;
+    return r;
+  }
+
+  private dropResume(peerId: string) {
+    for (const [token, r] of this.resumes) if (r.id === peerId) this.resumes.delete(token);
+  }
+
+  private resumeFor(peer: PeerInfo) {
+    if (peer.role !== 'guest' || peer.waiting) return undefined;
+    for (const [token, r] of this.resumes) if (r.id === peer.id) return (r.canShare = peer.canShare), token;
+    const token = crypto.randomUUID();
+    this.resumes.set(token, { id: peer.id, canShare: peer.canShare, expires: null });
+    return token;
+  }
+
   private async welcome(conn: Conn, peer: PeerInfo) {
     const others = [...this.peers.values()].filter((p) => p !== peer && this.canSee(peer, p));
     conn.send({
@@ -269,6 +303,7 @@ export class RoomCore {
       room: this.meta,
       space: this.space,
       peers: peer.waiting ? [] : others,
+      resume: this.resumeFor(peer),
     });
   }
 
@@ -286,6 +321,7 @@ export class RoomCore {
         const conn = this.conns.get(target[0]);
         conn?.send({ t: 'bye', reason: 'removed' });
         conn?.close();
+        this.dropResume(target[1].id);
         return this.disconnect(target[0]);
       }
       case 'admit':
@@ -384,6 +420,7 @@ export class RoomCore {
   private forgetIfEmpty() {
     if (this.peers.size) return;
     this.adminKey = null;
+    this.resumes.clear();
     this.password = '';
     this.space = EMPTY_SPACE;
     this.meta = RoomCore.freshMeta();

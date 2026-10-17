@@ -51,7 +51,8 @@ export interface AdminHello {
 }
 
 export type ClientMessage =
-  | { t: 'hello'; name: string; color: string; picture: string | null; password?: string; admin?: AdminHello }
+  /** `resume` comes from an earlier welcome: after a dropped connection it skips the waiting room and keeps the same id. */
+  | { t: 'hello'; name: string; color: string; picture: string | null; password?: string; admin?: AdminHello; resume?: string }
   /** Before the camera check: is the room open, and is this password right? Doesn't join. */
   | { t: 'check'; password?: string }
   /** Ties a new space's code to its admin key, so nobody else can ever open it as admin. Doesn't join. */
@@ -74,7 +75,7 @@ export type ByeReason = 'ended' | 'removed' | 'replaced';
 export type ServerMessage =
   | { t: 'checked'; space: SharedSpaceInfo; needsPassword: boolean }
   | { t: 'claimed'; ok: boolean }
-  | { t: 'welcome'; you: PeerInfo; ticket: string | null; room: RoomMeta; space: SharedSpaceInfo; peers: PeerInfo[] }
+  | { t: 'welcome'; you: PeerInfo; ticket: string | null; room: RoomMeta; space: SharedSpaceInfo; peers: PeerInfo[]; resume?: string }
   | { t: 'peer'; peer: PeerInfo }
   | { t: 'left'; id: string }
   | { t: 'room'; room: RoomMeta }
