@@ -3,7 +3,7 @@ export const ROOM_CODE_LENGTH = 6;
 
 /** Works in Node and the browser. The alphabet has 32 chars, so byte % 32 is unbiased. */
 export function generateRoomCode(): string {
-  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(ROOM_CODE_LENGTH));
+  const bytes = crypto.getRandomValues(new Uint8Array(ROOM_CODE_LENGTH));
   return Array.from(bytes, (b) => ROOM_CODE_ALPHABET[b % ROOM_CODE_ALPHABET.length]).join('');
 }
 

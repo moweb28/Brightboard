@@ -38,6 +38,8 @@ export interface JoinedSpace {
   schedule: Schedule | null;
   adminName: string;
   lastJoinedAt: number;
+  /** Remembered so rejoining doesn't ask again. Stays on this computer. */
+  password?: string;
 }
 
 export interface CallRecord {

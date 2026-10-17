@@ -5,6 +5,7 @@ export * from './files';
 export * from './webm';
 export * from './schedule';
 export * from './local';
+export * from './relay';
 
 /** In a call: whoever created the space hosts; everyone else is a guest. */
 export type Role = 'host' | 'guest';
@@ -94,7 +95,7 @@ export interface HostStats {
   minutesTogether: number;
 }
 
-/** Shared state the host controls, stored as LiveKit room metadata. */
+/** Shared state the admin controls, kept by the room relay while the call lasts. */
 export interface RoomMeta extends SpaceSettings {
   title: string;
   /** The admin is recording this call (shown to everyone). */
@@ -109,11 +110,12 @@ export interface RoomMeta extends SpaceSettings {
   spotlight: string | null;
 }
 
-/** Stored as LiveKit participant metadata (set by the server). */
+/** Who someone is in a call, as the relay reports it. */
 export interface ParticipantMeta {
   role: Role;
   waiting?: boolean;
   avatarColor?: string;
+  picture?: string | null;
 }
 
 /** Participant attributes each client sets for itself. */
