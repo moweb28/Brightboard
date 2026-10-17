@@ -24,6 +24,8 @@ export interface BrightboardBridge {
   screenShareStopped(): void;
   /** Puts text on the clipboard (works even when the window isn't focused). */
   copyText(text: string): Promise<void>;
+  /** Snipping tool: the user drags over any part of the screen; null if cancelled. */
+  snip(hint: string, rtl: boolean): Promise<{ dataURL: string; mimeType: 'image/png' | 'image/jpeg'; width: number; height: number } | null>;
   store: {
     load(): Promise<unknown>;
     save(data: unknown): Promise<void>;
@@ -62,6 +64,7 @@ const bridge: BrightboardBridge = {
   selectScreenSource: (id) => ipcRenderer.invoke('screen:select', id),
   screenShareStopped: () => ipcRenderer.send('screen:stopped'),
   copyText: (text) => ipcRenderer.invoke('clipboard:write', text),
+  snip: (hint, rtl) => ipcRenderer.invoke('snip:start', hint, rtl),
   store: {
     load: () => ipcRenderer.invoke('store:load'),
     save: (data) => ipcRenderer.invoke('store:save', data),

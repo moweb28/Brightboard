@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import icon from '../../build/icon.png?asset';
 import { registerFileHandlers } from './files';
 import { registerRemoteControl, setSharedSource } from './remote';
+import { registerSnip } from './snip';
 import { registerStore } from './store';
 
 const PROTOCOL = 'brightboard';
@@ -71,6 +72,7 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('clipboard:write', (_e, text: unknown) => clipboard.writeText(String(text ?? '').slice(0, 20_000)));
     registerRemoteControl(() => mainWindow);
     registerFileHandlers(() => mainWindow);
+    registerSnip(() => mainWindow);
     registerStore();
     ipcMain.handle('screen:select', (_e, id: string) => {
       selectedScreenSource = typeof id === 'string' ? id : null;

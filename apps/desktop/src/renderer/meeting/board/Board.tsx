@@ -1,7 +1,7 @@
-import { Excalidraw, exportToBlob } from '@excalidraw/excalidraw';
+import { convertToExcalidrawElements, Excalidraw, exportToBlob } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
-import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-import { Download, GitBranch, Loader2, Lock, LockOpen, Sparkles, Wand2, X } from 'lucide-react';
+import type { BinaryFileData, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
+import { Download, GitBranch, Loader2, Lock, LockOpen, Scissors, Sparkles, Wand2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Menu } from '../../components/ui';
 import { useSettings, useT } from '../../lib/settings';
@@ -56,6 +56,33 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
     setTimeout(() => URL.revokeObjectURL(link.href), 5000);
   };
 
+  // Snipping tool: grab part of the screen (another app, a website, a PDF) and drop it on the board.
+  const [snipping, setSnipping] = useState(false);
+  const snip = async () => {
+    const a = api.current;
+    const bridge = window.brightboard;
+    if (!a || !bridge || snipping) return;
+    setSnipping(true);
+    try {
+      const shot = await bridge.snip(t.board.snipHint, settings.lang === 'ar');
+      if (!shot || !api.current) return;
+      const b = api.current;
+      const fileId = crypto.randomUUID() as BinaryFileData['id'];
+      b.addFiles([{ id: fileId, dataURL: shot.dataURL as BinaryFileData['dataURL'], mimeType: shot.mimeType, created: Date.now() }]);
+      // Centered in view, shrunk if it wouldn't fit in most of the visible board.
+      const st = b.getAppState();
+      const viewW = st.width / st.zoom.value;
+      const viewH = st.height / st.zoom.value;
+      const scale = Math.min(1, (viewW * 0.8) / shot.width, (viewH * 0.8) / shot.height);
+      const width = shot.width * scale;
+      const height = shot.height * scale;
+      const [image] = convertToExcalidrawElements([{ type: 'image', fileId, status: 'saved', x: -st.scrollX + viewW / 2 - width / 2, y: -st.scrollY + viewH / 2 - height / 2, width, height }]);
+      b.updateScene({ elements: [...b.getSceneElementsIncludingDeleted(), image], appState: { selectedElementIds: { [image.id]: true } } as never });
+    } finally {
+      setSnipping(false);
+    }
+  };
+
   // Mind-map keys work while a mind-map box is selected (and you're not typing in it).
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
     const a = api.current;
@@ -94,6 +121,11 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
               <span className="board-pill">
                 <Loader2 size={14} className="spin" /> {t.board.reading}
               </span>
+            )}
+            {!viewOnly && window.brightboard && (
+              <button className={`board-btn ${snipping ? 'is-active' : ''}`} onClick={() => void snip()} title={t.board.snipTitle}>
+                <Scissors size={16} /> <span className="board-btn-label">{t.board.snip}</span>
+              </button>
             )}
             {!viewOnly && (
               <button className="board-btn" onClick={() => api.current && insertMindMap(api.current, t.board.rootText)} title={t.board.mindHint}>
