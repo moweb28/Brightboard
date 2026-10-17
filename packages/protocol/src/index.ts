@@ -142,7 +142,7 @@ export interface JoinInfo {
 }
 
 export type ModerateAction =
-  | { action: 'mute' | 'stopVideo' | 'remove' | 'admit'; identity: string }
+  | { action: 'mute' | 'stopVideo' | 'lowerHand' | 'remove' | 'admit'; identity: string }
   | { action: 'muteAll' | 'admitAll' }
   | { action: 'allowShare'; identity: string; value: boolean }
   | { action: 'lock' | 'chat' | 'recording' | 'transcribing' | 'board' | 'boardLock'; value: boolean }

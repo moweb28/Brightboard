@@ -22,6 +22,8 @@ export interface BrightboardBridge {
   selectScreenSource(id: string): Promise<void>;
   /** Tells the app this computer stopped sharing its screen. */
   screenShareStopped(): void;
+  /** Puts text on the clipboard (works even when the window isn't focused). */
+  copyText(text: string): Promise<void>;
   store: {
     load(): Promise<unknown>;
     save(data: unknown): Promise<void>;
@@ -55,6 +57,7 @@ const bridge: BrightboardBridge = {
   getScreenSources: () => ipcRenderer.invoke('screen:sources'),
   selectScreenSource: (id) => ipcRenderer.invoke('screen:select', id),
   screenShareStopped: () => ipcRenderer.send('screen:stopped'),
+  copyText: (text) => ipcRenderer.invoke('clipboard:write', text),
   store: {
     load: () => ipcRenderer.invoke('store:load'),
     save: (data) => ipcRenderer.invoke('store:save', data),

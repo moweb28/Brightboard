@@ -1,6 +1,6 @@
 import type { ModerateAction, RoomMeta } from '@classroom/protocol';
 import { Track, type Participant } from '../lib/rtc';
-import { MicOff, MonitorOff, MonitorUp, Pin, PinOff, Star, StarOff, UserMinus, VideoOff } from 'lucide-react';
+import { Hand, MicOff, MonitorOff, MonitorUp, Pin, PinOff, Star, StarOff, UserMinus, VideoOff } from 'lucide-react';
 import { useCallback, useRef } from 'react';
 import { useToast } from '../components/toast';
 import type { MenuItem } from '../components/ui';
@@ -51,6 +51,7 @@ export function participantActions(p: Participant, { t, amHost, meta, pinned, se
       hidden: !amHost,
     },
     { icon: MicOff, label: t.meeting.mute, onClick: () => moderate({ action: 'mute', identity: p.identity }), hidden: !target || !micOn },
+    { icon: Hand, label: t.meeting.lowerHand, onClick: () => moderate({ action: 'lowerHand', identity: p.identity }), hidden: !target || p.attributes.hand !== '1' },
     { icon: VideoOff, label: t.meeting.stopVideo, onClick: () => moderate({ action: 'stopVideo', identity: p.identity }), hidden: !target || !camOn },
     {
       icon: canShareScreen(p) ? MonitorOff : MonitorUp,

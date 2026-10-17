@@ -32,6 +32,23 @@ const SCREEN_ENCODINGS: RTCRtpEncodingParameters[] = [{ maxBitrate: 2_500_000, m
 const TEXT_TOPIC = '__text';
 const TEXT_CHUNK = 400_000;
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 15000];
+/** If a camera, mic or screen hasn't reached the media service by then, the user is told. */
+const MEDIA_TIMEOUT = 20_000;
+const FALLBACK_ICE: RTCIceServer[] = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.cloudflare.com:53'] }];
+
+/**
+ * STUN/TURN servers, fetched with the room pass. partytracks would fetch them without our headers,
+ * which the relay rejects, and that failure would stop media from connecting at all.
+ */
+async function fetchIceServers(prefix: string, ticket: string): Promise<RTCIceServer[]> {
+  try {
+    const res = await fetch(`${prefix}/generate-ice-servers`, { headers: { 'X-Ticket': ticket } });
+    const list = res.ok ? ((await res.json()) as { iceServers?: RTCIceServer[] | RTCIceServer }).iceServers : undefined;
+    return Array.isArray(list) ? list : list ? [list] : FALLBACK_ICE;
+  } catch {
+    return FALLBACK_ICE;
+  }
+}
 
 const wsUrl = (relay: string, code: string) => `${relay.replace(/^http/, 'ws').replace(/\/$/, '')}/room/${code}/ws`;
 const enc = new TextEncoder();
@@ -237,6 +254,7 @@ export class Room {
         return this.onData(msg.from, msg.topic, msg.data);
       case 'cmd':
         if (msg.cmd === 'mute') await this._setMic(false);
+        else if (msg.cmd === 'lowerHand') this._sendState({ hand: false });
         else await this._setCamera(false);
         return;
       case 'bye':
@@ -267,9 +285,17 @@ export class Room {
 
     // A new pass (first join, admitted from the waiting room, or after reconnecting) means a fresh media session.
     if (msg.ticket && msg.ticket !== this.ticket) {
-      this.ticket = msg.ticket;
-      this.partyTracks = new PartyTracks({ prefix: `${this.config.relayUrl.replace(/\/$/, '')}/partytracks`, headers: new Headers({ 'X-Ticket': msg.ticket }) });
-      for (const kind of this.outgoing.keys()) this.pushOutgoing(kind);
+      const ticket = msg.ticket;
+      this.ticket = ticket;
+      const prefix = `${this.config.relayUrl.replace(/\/$/, '')}/partytracks`;
+      const iceServers = await fetchIceServers(prefix, ticket);
+      // (Skipped if a newer welcome took over while the servers were loading.)
+      if (this.ticket === ticket) {
+        this.partyTracks = new PartyTracks({ prefix, headers: new Headers({ 'X-Ticket': ticket }), iceServers });
+        for (const kind of this.outgoing.keys()) this.pushOutgoing(kind);
+        // People whose tracks arrived while media was still starting get pulled now.
+        for (const p of this.remoteParticipants.values()) if (p.info) this.syncRemoteTracks(p, p.info);
+      }
     }
     for (const peer of msg.peers) this.upsertPeer(peer);
     this.setState(ConnectionState.Connected);
@@ -468,13 +494,21 @@ export class Room {
     if (!out || !this.partyTracks) return;
     out.sub?.unsubscribe();
     const sendEncodings$ = kind === 'camera' ? of(CAMERA_ENCODINGS) : kind === 'screen' ? of(SCREEN_ENCODINGS) : undefined;
+    // partytracks retries quietly when the media service can't be reached, so time it here.
+    let reached = false;
+    const timer = setTimeout(() => !reached && this.outgoing.get(kind) === out && this.emit(RoomEvent.MediaFailed, kind), MEDIA_TIMEOUT);
     out.sub = this.partyTracks.push(out.source$, sendEncodings$ ? { sendEncodings$ } : undefined).subscribe({
       next: (meta) => {
         if (!meta.sessionId || !meta.trackName) return;
+        reached = true;
+        clearTimeout(timer);
         this.localTracks = { ...this.localTracks, [kind]: { sessionId: meta.sessionId, trackName: meta.trackName } };
         this.sendTracks();
       },
-      error: (e) => console.warn('push failed', kind, e),
+      error: (e) => {
+        console.warn('push failed', kind, e);
+        this.emit(RoomEvent.MediaFailed, kind);
+      },
     });
   }
 

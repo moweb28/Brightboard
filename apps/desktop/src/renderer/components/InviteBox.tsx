@@ -5,6 +5,9 @@ import { inviteLink, randomPassword } from '../lib/call';
 import { useT } from '../lib/settings';
 import { Button, IconButton } from './ui';
 
+/** The desktop clipboard when available (never blocked), the browser's otherwise. */
+const copyText = (text: string) => (window.brightboard ? window.brightboard.copyText(text) : navigator.clipboard.writeText(text));
+
 function CopyRow({ label, value }: { label: string; value: string }) {
   const t = useT();
   const [done, setDone] = useState(false);
@@ -16,7 +19,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
         icon={done ? Check : Copy}
         label={t.common.copy}
         onClick={async () => {
-          await navigator.clipboard.writeText(value);
+          await copyText(value).catch(() => undefined);
           setDone(true);
           setTimeout(() => setDone(false), 1500);
         }}
@@ -33,7 +36,7 @@ export function InviteBox({ space, onPasswordChange }: { space: { code: string; 
   const password = space.password ?? '';
 
   const copyAll = async () => {
-    await navigator.clipboard.writeText(t.space.inviteMessage(space.title, link, formatRoomCode(space.code), password));
+    await copyText(t.space.inviteMessage(space.title, link, formatRoomCode(space.code), password)).catch(() => undefined);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };

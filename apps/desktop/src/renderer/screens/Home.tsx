@@ -197,7 +197,7 @@ export function Home({ newSpace }: { newSpace?: boolean }) {
                   color={j.color}
                   picture={j.picture}
                   badge={live.has(j.code) ? <Badge tone="live">{t.home.live}</Badge> : <Badge>{t.kinds[j.kind].name}</Badge>}
-                  line={t.home.hostedBy(j.adminName)}
+                  line={j.schedule ? `${t.home.hostedBy(j.adminName)} · ${formatSchedule(j.schedule, settings.lang)}` : t.home.hostedBy(j.adminName)}
                   onOpen={() => navigate({ name: 'space', id: `j:${j.code}` })}
                   actions={
                     <Button size="sm" icon={LogIn} onClick={() => void openCall({ code: j.code })}>

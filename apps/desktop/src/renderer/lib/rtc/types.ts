@@ -23,6 +23,8 @@ export enum RoomEvent {
   ActiveSpeakersChanged = 'activeSpeakersChanged',
   RoomMetadataChanged = 'roomMetadataChanged',
   DataReceived = 'dataReceived',
+  /** Your camera, mic or screen couldn't reach the media service (others won't see or hear it). */
+  MediaFailed = 'mediaFailed',
 }
 
 export enum ConnectionState {

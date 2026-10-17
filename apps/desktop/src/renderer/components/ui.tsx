@@ -1,5 +1,6 @@
 import { Check, Loader2, X, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { initials } from '../lib/format';
 import { useT } from '../lib/settings';
 
@@ -137,7 +138,8 @@ export function Modal({ title, onClose, children, footer, wide }: { title: strin
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return (
+  // Rendered at the top of the page, so a modal opened inside the dock or a panel still covers the whole window.
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal aria-label={title}>
         <header className="modal-head">
@@ -147,7 +149,8 @@ export function Modal({ title, onClose, children, footer, wide }: { title: strin
         <div className="modal-body">{children}</div>
         {footer && <footer className="modal-foot">{footer}</footer>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

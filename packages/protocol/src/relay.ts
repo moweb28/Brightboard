@@ -80,7 +80,7 @@ export type ServerMessage =
   | { t: 'left'; id: string }
   | { t: 'room'; room: RoomMeta }
   | { t: 'msg'; from: string; topic: string; data: unknown }
-  | { t: 'cmd'; cmd: 'mute' | 'stopVideo' }
+  | { t: 'cmd'; cmd: 'mute' | 'stopVideo' | 'lowerHand' }
   | { t: 'bye'; reason: ByeReason }
   | { t: 'error'; code: string }
   | { t: 'pong' };

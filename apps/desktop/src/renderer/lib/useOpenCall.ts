@@ -34,8 +34,10 @@ export function useOpenCall() {
       } catch (e) {
         const { code } = toCallError(e);
         // No password typed yet: open the join screen to ask for it. A typed one that's wrong gets a message.
-        if (code === 'wrongPassword' && !('admin' in target) && !password) navigate({ name: 'join', code: target.code });
-        else toast({ text: t.errors[code] ?? t.errors.generic, tone: 'warn' });
+        if (code === 'wrongPassword' && !('admin' in target) && !password) {
+          navigate({ name: 'join', code: target.code });
+          toast({ text: t.errors.needsPassword, tone: 'warn' });
+        } else toast({ text: t.errors[code] ?? t.errors.generic, tone: 'warn' });
         return false;
       }
     },

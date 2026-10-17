@@ -312,6 +312,7 @@ export class RoomCore {
     switch (action.action) {
       case 'mute':
       case 'stopVideo':
+      case 'lowerHand':
         return target && this.conns.get(target[0])?.send({ t: 'cmd', cmd: action.action });
       case 'muteAll':
         for (const [id, p] of this.peers) if (p.role === 'guest' && !p.waiting) this.conns.get(id)?.send({ t: 'cmd', cmd: 'mute' });

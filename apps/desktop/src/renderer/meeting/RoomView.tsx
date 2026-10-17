@@ -29,7 +29,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { InviteBox } from '../components/InviteBox';
 import { Logo } from '../components/layout';
-import { useToast } from '../components/toast';
+import { useToast, useToastDismiss } from '../components/toast';
 import { Badge, Button, Menu, Modal, SpaceIcon } from '../components/ui';
 import { callService } from '../lib/call';
 import { videoEffectFor } from '../lib/effects';
@@ -62,6 +62,7 @@ interface Props {
 export function RoomView({ join, choices, password }: Props) {
   const t = useT();
   const toast = useToast();
+  const dismissToast = useToastDismiss();
   const { settings } = useSettings();
   const room = useRoomContext();
   const connection = useConnectionState();
@@ -137,7 +138,8 @@ export function RoomView({ join, choices, password }: Props) {
       if (isWaiting(p)) {
         if (amHost) {
           if (settingsRef.current.soundJoin) sounds.join();
-          toast({ icon: Users, text: t.meeting.waitingToast(nameOf(p)), action: { label: t.meeting.admit, onClick: () => moderate({ action: 'admit', identity: p.identity }) } });
+          // Stays until they're admitted or leave, so a busy admin can't miss someone at the door.
+          toast({ icon: Users, text: t.meeting.waitingToast(nameOf(p)), key: `waiting:${p.identity}`, sticky: true, action: { label: t.meeting.admit, onClick: () => moderate({ action: 'admit', identity: p.identity }) } });
         }
         return;
       }
@@ -153,15 +155,24 @@ export function RoomView({ join, choices, password }: Props) {
     const onMuted = (pub: TrackPublication, p: Participant) => {
       if (p.isLocal && pub.source === Track.Source.Microphone && !selfMuting.current && !amHost) toast({ icon: MicOff, text: t.meeting.mutedByHost, tone: 'warn' });
     };
+    const onAdmittedOrGone = (_prev: string | undefined, p: Participant) => !isWaiting(p) && dismissToast(`waiting:${p.identity}`);
+    const onLeft = (p: Participant) => dismissToast(`waiting:${p.identity}`);
+    const onMediaFailed = () => toast({ icon: MicOff, text: t.meeting.mediaFailed, tone: 'warn', key: 'media-failed', sticky: true });
+    room.on(RoomEvent.MediaFailed, onMediaFailed);
     room.on(RoomEvent.ParticipantConnected, onJoin);
     room.on(RoomEvent.ParticipantAttributesChanged, onAttrs);
     room.on(RoomEvent.TrackMuted, onMuted);
+    room.on(RoomEvent.ParticipantMetadataChanged, onAdmittedOrGone);
+    room.on(RoomEvent.ParticipantDisconnected, onLeft);
     return () => {
+      room.off(RoomEvent.MediaFailed, onMediaFailed);
       room.off(RoomEvent.ParticipantConnected, onJoin);
       room.off(RoomEvent.ParticipantAttributesChanged, onAttrs);
       room.off(RoomEvent.TrackMuted, onMuted);
+      room.off(RoomEvent.ParticipantMetadataChanged, onAdmittedOrGone);
+      room.off(RoomEvent.ParticipantDisconnected, onLeft);
     };
-  }, [room, amHost, t, toast, moderate]);
+  }, [room, amHost, t, toast, dismissToast, moderate]);
 
   const toggleMic = async () => {
     selfMuting.current = true;

@@ -97,14 +97,14 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
             )}
             {!viewOnly && (
               <button className="board-btn" onClick={() => api.current && insertMindMap(api.current, t.board.rootText)} title={t.board.mindHint}>
-                <GitBranch size={16} /> {t.board.mindMap}
+                <GitBranch size={16} /> <span className="board-btn-label">{t.board.mindMap}</span>
               </button>
             )}
             {!viewOnly && (
               <Menu
                 trigger={(open, isOpen) => (
                   <button className={`board-btn ${isOpen ? 'is-active' : ''}`} onClick={open} title={t.board.smartPen}>
-                    <Wand2 size={16} /> {t.board.smartPen}
+                    <Wand2 size={16} /> <span className="board-btn-label">{t.board.smartPen}</span>
                   </button>
                 )}
                 items={[

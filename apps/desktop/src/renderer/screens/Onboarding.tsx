@@ -41,7 +41,7 @@ export function Onboarding() {
               <p className="muted">{t.onboarding.profileText}</p>
             </header>
             <PicturePicker preview={<Avatar name={name || '?'} color={color} picture={picture} size={96} />} value={picture} onChange={setPicture} />
-            <Field label={t.onboarding.displayName} maxLength={40} autoFocus required value={name} onChange={(e) => setName(e.target.value)} />
+            <Field label={t.onboarding.displayName} placeholder={t.onboarding.displayNamePlaceholder} maxLength={40} autoFocus required value={name} onChange={(e) => setName(e.target.value)} />
             {!picture && <ColorPicker label={t.onboarding.avatarColor} colors={AVATAR_COLORS} value={color} onChange={setColor} />}
           </section>
         )}

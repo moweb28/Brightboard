@@ -1,5 +1,5 @@
 import { extractRoomCode } from '@classroom/protocol';
-import { app, BrowserWindow, desktopCapturer, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, clipboard, desktopCapturer, ipcMain, session, shell } from 'electron';
 import { join, resolve } from 'node:path';
 import icon from '../../build/icon.png?asset';
 import { registerFileHandlers } from './files';
@@ -16,6 +16,8 @@ let pendingJoinCode: string | null = null;
 let selectedScreenSource: string | null = null;
 
 app.setName('Brightboard');
+// A separate profile folder (tests, or a second copy on one PC); each folder is its own single instance.
+if (process.env.BRIGHTBOARD_DATA_DIR) app.setPath('userData', process.env.BRIGHTBOARD_DATA_DIR);
 // Keep painting while the window is covered by other apps, so recordings and shares never freeze.
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
@@ -66,6 +68,7 @@ if (!app.requestSingleInstanceLock()) {
         }));
     });
     ipcMain.on('screen:stopped', () => setSharedSource(null));
+    ipcMain.handle('clipboard:write', (_e, text: unknown) => clipboard.writeText(String(text ?? '').slice(0, 20_000)));
     registerRemoteControl(() => mainWindow);
     registerFileHandlers(() => mainWindow);
     registerStore();

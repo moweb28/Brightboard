@@ -65,6 +65,9 @@ export class Participant {
     return !!this.getTrackPublication(Track.Source.ScreenShare);
   }
 
+  /** The relay's latest view of this person. */
+  info: PeerInfo | null = null;
+
   /** Copies who-they-are fields from the relay's view of this person. Returns what changed. */
   applyInfo(info: PeerInfo) {
     const metadata = JSON.stringify({ role: info.role, waiting: info.waiting, avatarColor: info.color, picture: info.picture });
@@ -75,6 +78,7 @@ export class Participant {
       permissions: info.canShare !== this.canShare,
       name: info.name !== this.name,
     };
+    this.info = info;
     this.identity = info.id;
     this.name = info.name;
     this.metadata = metadata;

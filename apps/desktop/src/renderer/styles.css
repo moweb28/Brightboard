@@ -299,7 +299,9 @@ button { font: inherit; color: inherit; }
 .preview-toggle:hover { background: color-mix(in srgb, var(--ink) 12%, var(--surface-2)); }
 .preview-toggle.is-off { background: var(--danger-soft); color: var(--danger); }
 .device-selects { display: grid; gap: 14px; }
-.select-with-action { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+/* The button sits under the select, so long device names never get cut off. */
+.select-with-action { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; justify-items: start; }
+.select-with-action > :first-child { width: 100%; }
 
 .prejoin-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 28px; align-items: center; width: min(1200px, calc(100% - 48px)); margin: 0 auto 40px; }
 .prejoin-preview .device-check { grid-template-columns: 1fr; }
@@ -511,7 +513,9 @@ button { font: inherit; color: inherit; }
 .dock-count { position: absolute; bottom: -2px; inset-inline-end: -4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: var(--bg); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
 .dock-leave { display: inline-flex; align-items: center; gap: 8px; height: 50px; padding: 0 20px; margin-inline-start: 6px; border-radius: 25px; border: 0; background: var(--danger); color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; }
 .dock-leave:hover { filter: brightness(0.92); }
-.dock .menu-up .menu-item { font-size: 22px; justify-content: center; }
+/* Big centered emoji only in the reaction picker (8+ items), not in other dock menus like Leave. */
+.dock .menu-up:has(.menu-item:nth-child(8)) .menu-item { font-size: 22px; justify-content: center; }
+.dock .menu-up .menu-item { white-space: nowrap; }
 .dock .menu-up:has(.menu-item:nth-child(8)) { display: grid; grid-template-columns: repeat(4, 1fr); min-width: 0; width: 240px; }
 
 /* Floating side cards */
@@ -659,7 +663,17 @@ button { font: inherit; color: inherit; }
 .check-row input { width: 18px; height: 18px; accent-color: var(--primary); }
 
 /* ================= Whiteboard ================= */
-.board { position: relative; width: 100%; height: 100%; min-height: 0; border-radius: 12px; overflow: hidden; background: #fff; }
+.board { position: relative; width: 100%; height: 100%; min-height: 0; border-radius: 12px; overflow: hidden; background: #fff; container-type: inline-size; }
+/* A narrow board (chat or people open, small window) keeps every tool visible: our buttons drop their labels. */
+@container (max-width: 1320px) {
+  .board-btn-label { display: none; }
+  .board-btn { padding: 0 10px; }
+}
+@container (max-width: 900px) {
+  .board-actions { gap: 3px; }
+  .board-btn { height: 32px; padding: 0 7px; }
+  .board .excalidraw .App-toolbar .ToolIcon__icon { width: 2.1rem; height: 2.1rem; }
+}
 [data-theme='dark'] .board { background: #121212; }
 .board .excalidraw { --color-primary: var(--primary); --color-primary-darker: var(--primary-hover); --color-primary-darkest: var(--primary-hover); --color-primary-light: var(--primary-soft); font-family: 'Rubik Variable', 'Segoe UI', sans-serif; }
 .board-actions { display: flex; align-items: center; gap: 6px; }
@@ -667,7 +681,7 @@ button { font: inherit; color: inherit; }
 .board-btn:hover { background: var(--surface-2); }
 .board-btn.is-active { background: var(--primary); border-color: transparent; color: var(--on-primary); }
 .board-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-size: 12.5px; font-weight: 600; }
-.board-note { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 500; pointer-events: none; }
+.board-note { position: absolute; z-index: 10; bottom: 14px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 500; pointer-events: none; }
 .board .menu { min-width: 300px; }
 
 /* ================= Transcript ================= */
@@ -715,3 +729,15 @@ button { font: inherit; color: inherit; }
 .upcoming-when { font-weight: 600; font-size: 14px; color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .is-now .upcoming-when { color: var(--online); }
 .next-pill { margin-inline-start: 8px; padding: 2px 8px; border-radius: 6px; background: var(--primary-soft); color: var(--primary); font-size: 13px; font-weight: 600; }
+.toast-close { border: 0; background: transparent; color: inherit; opacity: 0.7; padding: 4px; border-radius: 6px; cursor: pointer; display: grid; place-items: center; }
+.toast-close:hover { opacity: 1; background: color-mix(in srgb, currentColor 14%, transparent); }
+
+/* Arabic reads right to left, so arrows that mean "forward/back/in/out/send" point the other way. */
+[dir='rtl'] .lucide-arrow-right,
+[dir='rtl'] .lucide-arrow-left,
+[dir='rtl'] .lucide-log-in,
+[dir='rtl'] .lucide-log-out,
+[dir='rtl'] .lucide-send,
+[dir='rtl'] .lucide-send-horizontal,
+[dir='rtl'] .lucide-reply,
+[dir='rtl'] .lucide-door-open { transform: scaleX(-1); }
