@@ -9,6 +9,7 @@ import {
   type Space,
 } from '@classroom/protocol';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { callService } from './call';
 import { safeGet, safeSet } from './storage';
 
 export type SpaceInput = Pick<Space, 'title' | 'color' | 'picture' | 'kind' | 'schedule' | 'password'> & Partial<Pick<Space, 'waitingRoom' | 'muteOnJoin' | 'guestsCanShare' | 'chatEnabled'>>;
@@ -87,6 +88,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         while (existing.has(code)) code = generateRoomCode();
         const space: Space = { ...KIND_PRESETS[input.kind], ...input, id: randomId(), code, adminKey: randomKey(), createdAt: Date.now() };
         change((d) => ({ ...d, spaces: [...d.spaces, space] }));
+        // Claim the code online now. In the one-in-a-billion case it's already someone else's, pick another.
+        void callService.claim(code, space.adminKey).then(async (ok) => {
+          if (ok !== false) return;
+          const fresh = generateRoomCode();
+          if ((await callService.claim(fresh, space.adminKey)) === false) return;
+          change((d) => ({ ...d, spaces: d.spaces.map((s) => (s.id === space.id ? { ...s, code: fresh } : s)) }));
+        });
         return space;
       },
       updateSpace: (id, patch) => change((d) => ({ ...d, spaces: d.spaces.map((s) => (s.id === id ? { ...s, ...patch, id: s.id, code: s.code, adminKey: s.adminKey } : s)) })),

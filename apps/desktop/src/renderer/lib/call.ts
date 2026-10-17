@@ -63,7 +63,37 @@ function check(code: string, password: string): Promise<{ space: SharedSpaceInfo
   });
 }
 
+/**
+ * Ties a new space's code to its admin key right away, before any invite goes out, so nobody
+ * else can ever open it as admin. Resolves false if the code is taken, null if offline (the
+ * first start claims it instead).
+ */
+function claim(code: string, key: string): Promise<boolean | null> {
+  return new Promise((resolve) => {
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(wsUrl(code));
+    } catch {
+      return resolve(null);
+    }
+    const done = (v: boolean | null) => {
+      clearTimeout(timer);
+      resolve(v);
+      ws.close();
+    };
+    const timer = setTimeout(() => done(null), 10_000);
+    ws.onopen = () => ws.send(JSON.stringify({ t: 'claim', key } satisfies ClientMessage));
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data as string) as ServerMessage;
+      if (msg.t === 'claimed') done(msg.ok);
+    };
+    ws.onerror = () => done(null);
+    ws.onclose = () => done(null);
+  });
+}
+
 export const callService = {
+  claim,
   /**
    * Prepares to enter a call. For your own space nothing goes online yet; for someone else's,
    * the room is asked whether it's open and the password is right (so mistakes show before the camera check).

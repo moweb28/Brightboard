@@ -106,6 +106,15 @@ function createWindow() {
     if (url.startsWith('https://') || url.startsWith('http://')) shell.openExternal(url);
     return { action: 'deny' };
   });
+  // The window only ever shows the app. A link or redirect never replaces it with an outside page,
+  // which would otherwise get the app's bridge (files, remote control); web links open in the browser.
+  const appUrl = process.env.ELECTRON_RENDERER_URL;
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    if (appUrl && url.startsWith(appUrl)) return;
+    e.preventDefault();
+    if (url.startsWith('https://') || url.startsWith('http://')) shell.openExternal(url);
+  });
+  mainWindow.webContents.on('will-attach-webview', (e) => e.preventDefault());
   if (process.env.ELECTRON_RENDERER_URL) mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   else mainWindow.loadFile(join(import.meta.dirname, '../renderer/index.html'));
 }
