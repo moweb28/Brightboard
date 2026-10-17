@@ -1,0 +1,32 @@
+# Windows installer: `npm run dist` → dist/Brightboard-Setup-<version>.exe
+appId: app.brightboard.desktop
+productName: Brightboard
+electronVersion: 38.8.6
+copyright: Copyright © 2026 Brightboard
+directories:
+  output: dist
+  buildResources: build
+# electron-vite bundles everything into out/; only nut-js (remote control) is loaded at runtime.
+files:
+  - out/**
+  - package.json
+  # Only the Windows build of the remote-control library.
+  - "!**/node_modules/@nut-tree-fork/libnut-{darwin,linux}/**"
+asarUnpack:
+  - "**/*.node"
+protocols:
+  - name: Brightboard invite link
+    schemes: [brightboard]
+win:
+  target: [{ target: nsis, arch: [x64] }]
+  icon: build/icon.ico
+  artifactName: Brightboard-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Brightboard
+  deleteAppDataOnUninstall: false
+publish: null
