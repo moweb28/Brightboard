@@ -319,6 +319,7 @@ export function RoomView({ join, choices, password }: Props) {
             items={QUICK_REACTIONS.map((e) => ({ label: e, onClick: () => reactions.send(e) }))}
           />
           {amHost && <Ctrl icon={Presentation} label={meta.boardOpen ? t.board.close : t.board.open} active={meta.boardOpen} onClick={() => moderate({ action: 'board', value: !meta.boardOpen })} />}
+          {!amHost && meta.guestsCanBoard && <Ctrl icon={Presentation} label={meta.boardOpen ? t.board.isOpen : t.board.open} active={meta.boardOpen} onClick={() => !meta.boardOpen && moderate({ action: 'board', value: true })} />}
           <Ctrl icon={MessageSquare} label={t.meeting.chat} active={panel === 'chat'} badge={chat.unread} onClick={() => setPanel(panel === 'chat' ? null : 'chat')} />
           <Ctrl icon={Users} label={t.meeting.people} active={panel === 'people'} badge={guestsWaiting} count={people} onClick={() => setPanel(panel === 'people' ? null : 'people')} />
           <span className="dock-sep" aria-hidden />

@@ -28,7 +28,7 @@ const adminHello = (over: Partial<AdminHello> = {}): ClientMessage => ({
   admin: {
     key: KEY,
     space: { title: 'Algebra', color: '#4f46e5', picture: null, kind: 'class', schedule: null, adminName: 'Huda' },
-    settings: { waitingRoom: false, muteOnJoin: true, guestsCanShare: false, chatEnabled: true },
+    settings: { waitingRoom: false, muteOnJoin: true, guestsCanShare: false, guestsCanBoard: false, chatEnabled: true },
     password: '',
     ...over,
   },
@@ -133,7 +133,7 @@ describe('guests', () => {
   });
 
   it('wait in the waiting room until admitted, seeing nobody and getting no ticket', async () => {
-    const a = await join(adminHello({ settings: { waitingRoom: true, muteOnJoin: false, guestsCanShare: true, chatEnabled: true } }));
+    const a = await join(adminHello({ settings: { waitingRoom: true, muteOnJoin: false, guestsCanShare: true, guestsCanBoard: true, chatEnabled: true } }));
     const g1 = await join(guestHello('Omar'));
     const waitingWelcome = g1.last('welcome')!;
     expect(waitingWelcome.you.waiting).toBe(true);
@@ -282,7 +282,7 @@ describe('defenses', () => {
   });
 
   it('lets an admitted guest come back after a dropped connection, skipping the waiting room', async () => {
-    const a = await join(adminHello({ settings: { waitingRoom: true, muteOnJoin: false, guestsCanShare: false, chatEnabled: true } }));
+    const a = await join(adminHello({ settings: { waitingRoom: true, muteOnJoin: false, guestsCanShare: false, guestsCanBoard: false, chatEnabled: true } }));
     const g = await join(guestHello());
     const id = g.last('welcome')!.you.id;
     await room.message(a.id, { t: 'admin', action: { action: 'admit', identity: id } });
@@ -299,13 +299,27 @@ describe('defenses', () => {
   });
 
   it('expires resume passes after a few minutes', async () => {
-    await join(adminHello({ settings: { waitingRoom: true, muteOnJoin: false, guestsCanShare: false, chatEnabled: true } }));
+    await join(adminHello({ settings: { waitingRoom: true, muteOnJoin: false, guestsCanShare: false, guestsCanBoard: false, chatEnabled: true } }));
     const g = await join(guestHello());
     await room.message('c1', { t: 'admin', action: { action: 'admit', identity: g.last('welcome')!.you.id } });
     const pass = g.last('welcome')!.resume!;
     room.disconnect(g.id);
     clock += 4 * 60_000;
     expect((await join({ ...guestHello(), resume: pass } as ClientMessage)).last('welcome')!.you.waiting).toBe(true);
+  });
+
+  it('lets guests open the whiteboard only when allowed, and never close it', async () => {
+    const a = await join(adminHello({ settings: { waitingRoom: false, muteOnJoin: false, guestsCanShare: false, guestsCanBoard: true, chatEnabled: true } }));
+    const g = await join(guestHello());
+    await room.message(g.id, { t: 'admin', action: { action: 'board', value: true } });
+    expect(a.last('room')!.room.boardOpen).toBe(true);
+    await room.message(g.id, { t: 'admin', action: { action: 'board', value: false } });
+    expect(g.last('error')?.code).toBe('notAdmin');
+    expect(a.last('room')!.room.boardOpen).toBe(true);
+    await room.message(a.id, { t: 'admin', action: { action: 'board', value: false } });
+    await room.message(a.id, { t: 'admin', action: { action: 'settings', patch: { guestsCanBoard: false } } });
+    await room.message(g.id, { t: 'admin', action: { action: 'board', value: true } });
+    expect(a.last('room')!.room.boardOpen).toBe(false);
   });
 
   it('honors media passes only for people still in the room', async () => {

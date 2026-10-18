@@ -44,7 +44,10 @@ export function Stage({ room, meta, layout, strip, amHost, pinned, setPinned, mo
       { source: Track.Source.ScreenShare, withPlaceholder: false },
     ],
     { onlySubscribed: false },
-  ).filter((r) => !isWaiting(r.participant));
+  )
+    .filter((r) => !isWaiting(r.participant))
+    // One tile per person and source, always: a duplicate would confuse React and break the layout.
+    .filter((r, i, all) => all.findIndex((o) => keyOf(o) === keyOf(r)) === i);
 
   const cameras = refs.filter((r) => r.source === Track.Source.Camera);
   const shares = refs.filter((r) => r.source === Track.Source.ScreenShare && isTrackReference(r));

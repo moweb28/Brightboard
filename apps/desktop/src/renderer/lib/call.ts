@@ -1,4 +1,4 @@
-import type { ClientMessage, JoinInfo, ModerateAction, ServerMessage, SharedSpaceInfo, Space, SpaceSettings } from '@classroom/protocol';
+import { KIND_PRESETS, type ClientMessage, type JoinInfo, type ModerateAction, type ServerMessage, type SharedSpaceInfo, type Space, type SpaceSettings } from '@classroom/protocol';
 import { JoinError, Room } from './rtc';
 
 /**
@@ -112,7 +112,7 @@ export const callService = {
         admin: {
           key: s.adminKey,
           space,
-          settings: { waitingRoom: s.waitingRoom, muteOnJoin: s.muteOnJoin, guestsCanShare: s.guestsCanShare, chatEnabled: s.chatEnabled },
+          settings: { waitingRoom: s.waitingRoom, muteOnJoin: s.muteOnJoin, guestsCanShare: s.guestsCanShare, guestsCanBoard: s.guestsCanBoard ?? KIND_PRESETS[s.kind].guestsCanBoard, chatEnabled: s.chatEnabled },
           password: s.password,
         },
       };

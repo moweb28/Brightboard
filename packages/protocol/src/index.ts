@@ -24,16 +24,18 @@ export interface SpaceSettings {
   waitingRoom: boolean;
   muteOnJoin: boolean;
   guestsCanShare: boolean;
+  /** Guests may open the whiteboard for everyone (only the admin can close it). */
+  guestsCanBoard: boolean;
   chatEnabled: boolean;
   locked: boolean;
 }
 
 /** Default settings for each kind of space; the host can change any of them later. */
 export const KIND_PRESETS: Record<SpaceKind, Omit<SpaceSettings, 'locked'>> = {
-  hangout: { waitingRoom: false, muteOnJoin: false, guestsCanShare: true, chatEnabled: true },
-  meeting: { waitingRoom: true, muteOnJoin: false, guestsCanShare: true, chatEnabled: true },
-  class: { waitingRoom: true, muteOnJoin: true, guestsCanShare: false, chatEnabled: true },
-  event: { waitingRoom: false, muteOnJoin: true, guestsCanShare: false, chatEnabled: true },
+  hangout: { waitingRoom: false, muteOnJoin: false, guestsCanShare: true, guestsCanBoard: true, chatEnabled: true },
+  meeting: { waitingRoom: true, muteOnJoin: false, guestsCanShare: true, guestsCanBoard: true, chatEnabled: true },
+  class: { waitingRoom: true, muteOnJoin: true, guestsCanShare: false, guestsCanBoard: true, chatEnabled: true },
+  event: { waitingRoom: false, muteOnJoin: true, guestsCanShare: false, guestsCanBoard: false, chatEnabled: true },
 };
 
 export const KIND_EMOJI: Record<SpaceKind, string> = { hangout: '☀️', meeting: '💼', class: '🎓', event: '🎉' };

@@ -240,8 +240,11 @@ export class Room {
       case 'welcome':
         return this.onWelcome(msg);
       case 'peer':
+        // News about yourself (e.g. the admin let you share your screen) updates you; it isn't someone new.
+        if (msg.peer.id === this.localParticipant.identity) return this.updateLocal(msg.peer);
         return this.upsertPeer(msg.peer);
       case 'left': {
+        if (msg.id === this.localParticipant.identity) return;
         const p = this.remoteParticipants.get(msg.id);
         if (!p) return;
         this.removeRemote(p);
@@ -307,6 +310,15 @@ export class Room {
       this.joinWaiter = null;
       w.resolve();
     }
+  }
+
+  /** The relay's new view of you: name, role, permissions (your own media state stays yours). */
+  private updateLocal(info: PeerInfo) {
+    const local = this.localParticipant;
+    const changed = local.applyInfo({ ...info, state: { ...info.state, hand: local.attributes.hand === '1', away: local.attributes.away === '1' } });
+    if (changed.metadata !== null) this.emit(RoomEvent.ParticipantMetadataChanged, changed.metadata, local);
+    if (changed.permissions) this.emit(RoomEvent.ParticipantPermissionsChanged, undefined, local);
+    if (changed.name) this.emit(RoomEvent.ParticipantNameChanged, local.name, local);
   }
 
   private upsertPeer(info: PeerInfo) {

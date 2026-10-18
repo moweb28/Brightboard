@@ -12,7 +12,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { callService } from './call';
 import { safeGet, safeSet } from './storage';
 
-export type SpaceInput = Pick<Space, 'title' | 'color' | 'picture' | 'kind' | 'schedule' | 'password'> & Partial<Pick<Space, 'waitingRoom' | 'muteOnJoin' | 'guestsCanShare' | 'chatEnabled'>>;
+export type SpaceInput = Pick<Space, 'title' | 'color' | 'picture' | 'kind' | 'schedule' | 'password'> & Partial<Pick<Space, 'waitingRoom' | 'muteOnJoin' | 'guestsCanShare' | 'guestsCanBoard' | 'chatEnabled'>>;
 
 interface Store {
   /** null until the saved data has been read. */

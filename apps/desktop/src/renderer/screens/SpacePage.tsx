@@ -12,7 +12,7 @@ import { useSettings, useT } from '../lib/settings';
 import { useStore } from '../lib/store';
 import { useOpenCall } from '../lib/useOpenCall';
 
-type SettingKey = 'waitingRoom' | 'muteOnJoin' | 'guestsCanShare' | 'chatEnabled';
+type SettingKey = 'waitingRoom' | 'muteOnJoin' | 'guestsCanShare' | 'guestsCanBoard' | 'chatEnabled';
 
 /** `id` is a local space id, or `j:CODE` for a space you joined. */
 export function SpacePage({ id }: { id: string }) {
@@ -77,6 +77,7 @@ function AdminSpace({ space }: { space: Space }) {
     { key: 'waitingRoom', label: t.space.waitingRoom, desc: t.space.waitingRoomDesc },
     { key: 'muteOnJoin', label: t.space.muteOnJoin, desc: t.space.muteOnJoinDesc },
     { key: 'guestsCanShare', label: t.space.guestsCanShare, desc: t.space.guestsCanShareDesc },
+    { key: 'guestsCanBoard', label: t.space.guestsCanBoard, desc: t.space.guestsCanBoardDesc },
     { key: 'chatEnabled', label: t.space.chatEnabled, desc: t.space.chatEnabledDesc },
   ];
 

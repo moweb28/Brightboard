@@ -1,6 +1,6 @@
 import type { ModerateAction, RoomMeta } from '@classroom/protocol';
 import { Track, type Participant, type Room } from '../lib/rtc';
-import { DoorOpen, EyeOff, Hand, Lock, LockOpen, MessageSquare, MessageSquareOff, Mic, MicOff, MonitorUp, MoreVertical, Search, UserCheck, Video, VideoOff, X } from 'lucide-react';
+import { DoorOpen, EyeOff, Hand, Lock, LockOpen, MessageSquare, MessageSquareOff, Mic, MicOff, MonitorUp, MoreVertical, Presentation, Search, UserCheck, Video, VideoOff, X } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, Badge, Button, IconButton, Menu } from '../components/ui';
 import { callService } from '../lib/call';
@@ -51,6 +51,9 @@ export function PeoplePanel({ room, spaceId, meta, amHost, pinned, setPinned, mo
           </Button>
           <Button size="sm" variant="secondary" icon={DoorOpen} onClick={() => callService.updateRoom(spaceId, { waitingRoom: !meta.waitingRoom }).catch(() => undefined)}>
             {meta.waitingRoom ? t.meeting.waitingOff : t.meeting.waitingOn}
+          </Button>
+          <Button size="sm" variant="secondary" icon={Presentation} onClick={() => callService.updateRoom(spaceId, { guestsCanBoard: !meta.guestsCanBoard }).catch(() => undefined)}>
+            {meta.guestsCanBoard ? t.meeting.boardGuestsOff : t.meeting.boardGuestsOn}
           </Button>
         </div>
       )}

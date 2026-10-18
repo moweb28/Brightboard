@@ -81,6 +81,7 @@ export class RoomCore {
       waitingRoom: false,
       muteOnJoin: false,
       guestsCanShare: true,
+      guestsCanBoard: true,
       chatEnabled: true,
       locked: false,
       recording: false,
@@ -161,6 +162,8 @@ export class RoomCore {
         return;
       }
       case 'admin':
+        // Guests may open the whiteboard when the admin allows it; closing it stays the admin's.
+        if (peer.role !== 'host' && msg.action?.action === 'board' && msg.action.value === true && this.meta.guestsCanBoard && !peer.waiting) return this.setMeta({ boardOpen: true });
         if (peer.role !== 'host') return conn.send({ t: 'error', code: 'notAdmin' });
         return this.admin(msg.action);
     }
@@ -464,6 +467,6 @@ function pickState(s: unknown) {
 
 function pickSettings(s: Partial<SpaceSettings>) {
   const out: Partial<SpaceSettings> = {};
-  for (const k of ['waitingRoom', 'muteOnJoin', 'guestsCanShare', 'chatEnabled', 'locked'] as const) if (typeof s?.[k] === 'boolean') out[k] = s[k];
+  for (const k of ['waitingRoom', 'muteOnJoin', 'guestsCanShare', 'guestsCanBoard', 'chatEnabled', 'locked'] as const) if (typeof s?.[k] === 'boolean') out[k] = s[k];
   return out;
 }
