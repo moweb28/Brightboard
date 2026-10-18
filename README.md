@@ -35,7 +35,9 @@ headline, playful, clean, sketchy, code) up to 3XL. The admin picks the **board 
 blackboard, chalkboard, paper, grid paper or blueprint (dark boards switch to light ink).
 **Shapes** adds ready-made geometry in the middle of the board, sized in units: square, rectangle, parallelogram,
 trapezoid, rhombus, pentagon, hexagon, circle, and equilateral, isosceles, right, scalene and obtuse triangles.
-Triangles show their angles in the corners and circles show their diameter inside.
+Corners of triangles, rhombi and polygons show a curved angle arc with its degrees (a small square for 90°), and
+circles show their diameter inside. A selected shape shows its area and perimeter just below it, and the Measure
+panel works them out step by step (for example A = w × h = 6 × 4 = 24 cm²).
 **Sizes on shapes** writes lengths right on the edges of boxes, circles, lines and triangles, live, grid or not
 (turn it off in More or the Measure panel). New shapes use clean single lines. **Measure** (ruler button) opens a side panel with the selected shape's sizes in cm, m, inches or grid squares:
 sides, width and height, radius and diameter, line length, perimeter, area and a triangle's angles. Type a width,

@@ -174,3 +174,78 @@ export function resizeFor(el: MeasurableElement, key: MeasureKey, value: number,
   }
   return null;
 }
+
+/** One step-by-step calculation: the formula, the numbers put in, and the result. */
+export interface Explained {
+  key: 'area' | 'perimeter';
+  /** A for area, P for perimeter, C for a circle's circumference. */
+  symbol: 'A' | 'P' | 'C';
+  formula: string;
+  numbers: string;
+  value: number;
+  dim: 1 | 2;
+  /** True when π (or an approximation) is involved, so the result is shown with ≈. */
+  approx: boolean;
+}
+
+const num = (n: number) => String(roundMeasure(n));
+const get = (m: Measurement, key: MeasureKey) => m.rows.find((r) => r.key === key)?.value;
+
+/** How the area and perimeter of a measured shape are worked out, like on a worksheet. */
+export function explainMeasurement(m: Measurement): Explained[] {
+  const area = get(m, 'area') as number | undefined;
+  const perimeter = get(m, 'perimeter') as number | undefined;
+  if (area === undefined || perimeter === undefined) return [];
+  const A = (formula: string, numbers: string, approx = false): Explained => ({ key: 'area', symbol: 'A', formula, numbers, value: area, dim: 2, approx });
+  const P = (formula: string, numbers: string, approx = false, symbol: 'P' | 'C' = 'P'): Explained => ({ key: 'perimeter', symbol, formula, numbers, value: perimeter, dim: 1, approx });
+  switch (m.kind) {
+    case 'square': {
+      const s = get(m, 'side') as number;
+      return [A('s²', `${num(s)}²`), P('4 × s', `4 × ${num(s)}`)];
+    }
+    case 'rectangle': {
+      const w = get(m, 'width') as number;
+      const h = get(m, 'height') as number;
+      return [A('w × h', `${num(w)} × ${num(h)}`), P('2 × (w + h)', `2 × (${num(w)} + ${num(h)})`)];
+    }
+    case 'rhombus': {
+      const d1 = get(m, 'diagonal1') as number;
+      const d2 = get(m, 'diagonal2') as number;
+      const s = get(m, 'side') as number;
+      return [A('(d₁ × d₂) ÷ 2', `(${num(d1)} × ${num(d2)}) ÷ 2`), P('4 × s', `4 × ${num(s)}`)];
+    }
+    case 'circle': {
+      const r = get(m, 'radius') as number;
+      return [A('π × r²', `π × ${num(r)}²`, true), P('2 × π × r', `2 × π × ${num(r)}`, true, 'C')];
+    }
+    case 'ellipse': {
+      const a = (get(m, 'width') as number) / 2;
+      const b = (get(m, 'height') as number) / 2;
+      return [A('π × a × b', `π × ${num(a)} × ${num(b)}`, true), P('π × (3(a + b) − √((3a + b)(a + 3b)))', `a = ${num(a)}, b = ${num(b)}`, true)];
+    }
+    case 'triangle': {
+      const sides = get(m, 'sides') as number[];
+      const base = Math.max(...sides);
+      const height = (2 * area) / base;
+      return [A('½ × b × h', `½ × ${num(base)} × ${num(height)}`), P('a + b + c', sides.map(num).join(' + '))];
+    }
+    case 'polygon': {
+      const sides = get(m, 'sides') as number[];
+      const sum = sides.map(num).join(' + ');
+      const regular = sides.every((s) => Math.abs(s - sides[0]) <= Math.max(0.01, sides[0] * 0.01));
+      if (regular) {
+        // Regular polygon: half the perimeter times the apothem (center to the middle of a side).
+        const apothem = (2 * area) / perimeter;
+        return [A('½ × P × a', `½ × ${num(perimeter)} × ${num(apothem)}`), P(`${sides.length} × s`, `${sides.length} × ${num(sides[0])}`)];
+      }
+      const parallelogram = sides.length === 4 && Math.abs(sides[0] - sides[2]) <= sides[0] * 0.01 && Math.abs(sides[1] - sides[3]) <= sides[1] * 0.01;
+      if (parallelogram) {
+        const base = Math.max(sides[0], sides[1]);
+        return [A('b × h', `${num(base)} × ${num(area / base)}`), P('2 × (a + b)', `2 × (${num(sides[0])} + ${num(sides[1])})`)];
+      }
+      return [A('sum of the triangles inside', '—'), P('sum of the sides', sum)];
+    }
+    default:
+      return [];
+  }
+}

@@ -1,4 +1,4 @@
-import { measureElement, resizeFor, roundMeasure, type MeasureKey, type MeasureRow } from '@classroom/protocol';
+import { explainMeasurement, measureElement, resizeFor, roundMeasure, type MeasureKey, type MeasureRow, type Measurement } from '@classroom/protocol';
 import { CaptureUpdateAction, newElementWith } from '@excalidraw/excalidraw';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import { Grid3x3, Ruler, Tag, X } from 'lucide-react';
@@ -26,6 +26,7 @@ interface Props {
 }
 
 const fmt = (n: number) => String(roundMeasure(n));
+const explained = (m: Measurement) => explainMeasurement(m);
 
 /** Side panel: lengths, area and perimeter of the selected shapes, in the chosen unit. */
 export function MeasurePanel({ t, api, tick, unit, scale, grid, labels, onToggleLabels, onUnit, onScale, onToggleGrid, onClose }: Props) {
@@ -99,7 +100,8 @@ export function MeasurePanel({ t, api, tick, unit, scale, grid, labels, onToggle
           <section key={el.id} className="measure-item">
             <p className="measure-kind">{m.kinds[res.kind]}</p>
             <dl>
-              {res.rows.map((r) => (
+              {/* Area and perimeter get their own worked-out cards below when we can explain them. */}
+              {res.rows.filter((r) => !(explained(res).length && (r.key === 'area' || r.key === 'perimeter'))).map((r) => (
                 <div key={r.key} className="measure-row">
                   <dt>{m.rows[r.key]}</dt>
                   <dd>
@@ -112,6 +114,18 @@ export function MeasurePanel({ t, api, tick, unit, scale, grid, labels, onToggle
                 </div>
               ))}
             </dl>
+            {explained(res).map((x) => (
+              <div key={x.key} className="measure-calc">
+                <p className="calc-title">{x.key === 'area' ? m.rows.area : x.symbol === 'C' ? m.circumference : m.rows.perimeter}</p>
+                <p className="calc-formula">
+                  {x.symbol} = {x.formula}
+                </p>
+                <p className="calc-result">
+                  {x.numbers !== '—' && <>= {x.numbers} </>}
+                  {x.approx ? '≈' : '='} <strong>{fmt(x.value)} {unitLabel}{x.dim === 2 ? '²' : ''}</strong>
+                </p>
+              </div>
+            ))}
           </section>
         ))
       )}

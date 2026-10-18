@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ellipsePerimeter, measureElement, resizeFor, roundMeasure, type MeasureRow } from './measure';
+import { ellipsePerimeter, explainMeasurement, measureElement, resizeFor, roundMeasure, type MeasureRow } from './measure';
 
 const row = (rows: MeasureRow[] | undefined, key: string) => rows?.find((r) => r.key === key)?.value;
 const SCALE = 20; // 20 px = 1 cm
@@ -66,5 +66,28 @@ describe('measuring board shapes', () => {
     expect(resizeFor({ type: 'line', width: 60, height: 80, points: [[0, 0], [60, 80]] }, 'length', 10, SCALE)).toEqual({ factor: 2 });
     expect(resizeFor({ type: 'rectangle', width: 100, height: 60 }, 'area', 5, SCALE)).toBeNull();
     expect(resizeFor({ type: 'rectangle', width: 100, height: 60 }, 'width', -1, SCALE)).toBeNull();
+  });
+});
+
+describe('worked-out area and perimeter', () => {
+  const explain = (el: Parameters<typeof measureElement>[0]) => explainMeasurement(measureElement(el, SCALE)!);
+  it('shows the formula, the numbers and the result', () => {
+    const [a, p] = explain({ type: 'rectangle', width: 120, height: 80 });
+    expect([a.formula, a.numbers, a.value]).toEqual(['w × h', '6 × 4', 24]);
+    expect([p.formula, p.numbers, p.value]).toEqual(['2 × (w + h)', '2 × (6 + 4)', 20]);
+    const [ca, cc] = explain({ type: 'ellipse', width: 120, height: 120 });
+    expect([ca.formula, ca.numbers, ca.approx]).toEqual(['π × r²', 'π × 3²', true]);
+    expect(cc.symbol).toBe('C');
+    const [ta, tp] = explain({ type: 'line', width: 160, height: 120, points: [[0, 0], [160, 120], [0, 120], [0, 0]] });
+    expect([ta.numbers, ta.value]).toEqual(['½ × 10 × 4.8', 24]);
+    expect(tp.numbers).toBe('10 + 8 + 6');
+  });
+  it('recognises regular polygons and parallelograms', () => {
+    const hex = Array.from({ length: 6 }, (_, i) => [100 + 60 * Math.cos((i * Math.PI) / 3), 100 + 60 * Math.sin((i * Math.PI) / 3)] as [number, number]);
+    const [ha] = explain({ type: 'line', width: 120, height: 104, points: [...hex, hex[0]] });
+    expect(ha.formula).toBe('½ × P × a');
+    const [pa, pp] = explain({ type: 'line', width: 200, height: 100, points: [[40, 0], [200, 0], [160, 100], [0, 100], [40, 0]] });
+    expect([pa.formula, pa.numbers]).toEqual(['b × h', '8 × 5']);
+    expect(pp.formula).toBe('2 × (a + b)');
   });
 });
