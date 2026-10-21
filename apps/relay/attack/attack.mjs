@@ -206,6 +206,49 @@ const realKey = 'r'.repeat(48);
   h.close();
 }
 
+// 12. Guest closes or locks the board, or lets everyone share.
+{
+  const room = code();
+  const h = await open(room);
+  send(h, admin(realKey));
+  await sleep(300);
+  send(h, { t: 'admin', action: { action: 'board', value: true } });
+  const g = await open(room);
+  send(g, guest('evil'));
+  await sleep(300);
+  for (const action of [{ action: 'board', value: false }, { action: 'boardLock', value: true }, { action: 'settings', patch: { guestsCanShare: true, waitingRoom: false } }]) send(g, { t: 'admin', action });
+  await sleep(400);
+  const m = last(h, 'room')?.room ?? {};
+  report('guest board/settings control', !m.boardOpen || m.boardLocked || m.guestsCanShare === true && settings.guestsCanShare === false, `board open: ${m.boardOpen}, locked: ${m.boardLocked}`);
+  g.close();
+  h.close();
+}
+
+// 13. Modified app: chats while chat is off, draws on a locked board.
+{
+  const room = code();
+  const h = await open(room);
+  send(h, admin(realKey));
+  await sleep(300);
+  const g = await open(room);
+  send(g, guest('evil'));
+  const o = await open(room);
+  send(o, guest('other'));
+  await sleep(300);
+  send(h, { t: 'admin', action: { action: 'chat', value: false } });
+  send(h, { t: 'admin', action: { action: 'board', value: true } });
+  send(h, { t: 'admin', action: { action: 'boardLock', value: true } });
+  await sleep(300);
+  send(g, { t: 'send', topic: 'chat', data: { s: 'sneaky' } });
+  send(g, { t: 'send', topic: 'board', data: '{"type":"update","elements":[]}' });
+  await sleep(400);
+  const leaked = o.msgs.filter((m) => m.t === 'msg').map((m) => m.topic);
+  report('chat-off and board lock', leaked.length > 0, `reached another student: ${leaked.join(', ') || 'nothing'}`);
+  g.close();
+  o.close();
+  h.close();
+}
+
 const bad = results.filter((r) => r.vulnerable).length;
 console.log(`\n${bad} of ${results.length} checks vulnerable`);
 process.exit(0);

@@ -232,6 +232,7 @@ button { font: inherit; color: inherit; }
 
 .toasts { position: fixed; bottom: 104px; inset-inline-end: 20px; z-index: 60; display: flex; flex-direction: column-reverse; gap: 10px; align-items: flex-end; pointer-events: none; }
 .toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; max-width: 380px; padding: 12px 14px; border-radius: 8px; background: var(--rail); color: var(--ink); border: 1px solid var(--border); box-shadow: var(--shadow-lg); font-size: 14.5px; animation: pop 0.2s; }
+.toast > svg { flex-shrink: 0; }
 .toast-warn { border-inline-start: 4px solid var(--warn); }
 .toast-success { border-inline-start: 4px solid var(--online); }
 .toast-action { border: 0; background: color-mix(in srgb, currentColor 18%, transparent); color: inherit; font-weight: 600; padding: 6px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
@@ -666,14 +667,31 @@ button { font: inherit; color: inherit; }
 .board { position: relative; width: 100%; height: 100%; min-height: 0; border-radius: 12px; overflow: hidden; background: #fff; container-type: inline-size; }
 /* A narrow board (chat or people open, small window) keeps every tool visible: our buttons drop their labels. */
 @container (max-width: 1320px) {
-  .board-btn-label { display: none; }
-  .board-btn { padding: 0 10px; }
+  .board .board-btn-label, .board .excalidraw .sidebar-trigger__label { display: none; }
+  .board .board-btn { padding: 0 8px; }
+  .board .board-actions { gap: 4px; }
 }
 @container (max-width: 900px) {
-  .board-actions { gap: 3px; }
-  .board-btn { height: 30px; padding: 0 6px; }
+  .board .board-actions { gap: 3px; }
+  .board .board-btn { height: 30px; padding: 0 6px; }
   .board .excalidraw .App-toolbar { gap: 0; }
   .board .excalidraw .App-toolbar .ToolIcon__icon { width: 1.8rem; height: 1.8rem; }
+}
+/* Too narrow for one row (e.g. people panel open): our buttons stack down the right instead of running off the edges. */
+@container (max-width: 1000px) {
+  .board .board-actions { flex-direction: column; align-items: flex-end; }
+  .board .board-btn { width: 34px; justify-content: center; padding: 0; }
+  .board .board-btn svg { flex-shrink: 0; }
+  /* Their menus open to the left of the column, from its top, so they stay on the board. */
+  .board .board-actions { position: relative; }
+  .board .board-actions .menu-anchor { position: static; }
+  .board .board-actions .board-pop { top: 0; inset-inline-end: calc(100% + 8px); }
+  /* The pen/text bar and the measure panel move left, clear of the column; the panel starts below the bar. */
+  .board .board-ctx { inset-inline-start: 12px; inset-inline-end: auto; margin-inline: 0; max-width: calc(100% - 200px); justify-content: flex-start; }
+  .board .measure { inset-inline-end: auto; inset-inline-start: 12px; }
+  .board:has(.board-ctx) .measure { top: 184px; }
+  .board .excalidraw .App-menu_top { align-items: start; }
+  .board .excalidraw .App-menu_top .Stack, .board .excalidraw .App-toolbar { align-self: start; height: auto; }
 }
 [data-theme='dark'] .board { background: #121212; }
 .board .excalidraw { --color-primary: var(--primary); --color-primary-darker: var(--primary-hover); --color-primary-darkest: var(--primary-hover); --color-primary-light: var(--primary-soft); font-family: 'Rubik Variable', 'Segoe UI', sans-serif; }
@@ -681,6 +699,7 @@ button { font: inherit; color: inherit; }
 .board-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 8px; border: 0; background: var(--sidebar); color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .board-btn:hover { background: var(--surface-2); }
 .board-btn.is-active { background: var(--primary); border-color: transparent; color: var(--on-primary); }
+.board-view-actions { position: absolute; z-index: 5; top: 16px; inset-inline-end: 16px; }
 .board-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-size: 12.5px; font-weight: 600; }
 .board-note { position: absolute; z-index: 10; bottom: 14px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 500; pointer-events: none; }
 .board .menu { min-width: 300px; }

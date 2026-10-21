@@ -133,7 +133,7 @@ export function RoomView({ join, choices, password }: Props) {
 
   // Notifications for joins, waiting room, raised hands and being muted.
   useEffect(() => {
-    const onJoin = (p: Participant) => {
+    const onJoin = (p: Participant, alreadyHere?: boolean) => {
       if (isWaiting(p)) {
         if (amHost) {
           if (settingsRef.current.soundJoin) sounds.join();
@@ -142,6 +142,8 @@ export function RoomView({ join, choices, password }: Props) {
         }
         return;
       }
+      // People who were there before you (e.g. when you're let in from the waiting room) aren't news.
+      if (alreadyHere) return;
       if (settingsRef.current.soundJoin) sounds.join();
       toast({ icon: Users, text: t.meeting.joined(nameOf(p)) });
     };

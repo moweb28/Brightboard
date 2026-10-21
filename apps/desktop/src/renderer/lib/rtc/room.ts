@@ -300,7 +300,7 @@ export class Room {
         for (const p of this.remoteParticipants.values()) if (p.info) this.syncRemoteTracks(p, p.info);
       }
     }
-    for (const peer of msg.peers) this.upsertPeer(peer);
+    for (const peer of msg.peers) this.upsertPeer(peer, true);
     this.setState(ConnectionState.Connected);
     if (prevMeta !== local.metadata) this.emit(RoomEvent.ParticipantMetadataChanged, prevMeta, local);
     this.emit(RoomEvent.RoomMetadataChanged, this.metadata);
@@ -321,7 +321,8 @@ export class Room {
     if (changed.name) this.emit(RoomEvent.ParticipantNameChanged, local.name, local);
   }
 
-  private upsertPeer(info: PeerInfo) {
+  /** `alreadyHere`: someone who was in the room before you arrived (no "joined" news for them). */
+  private upsertPeer(info: PeerInfo, alreadyHere = false) {
     let p = this.remoteParticipants.get(info.id);
     const isNew = !p;
     if (!p) {
@@ -329,7 +330,7 @@ export class Room {
       this.remoteParticipants.set(info.id, p);
     }
     const changed = p.applyInfo(info);
-    if (isNew) this.emit(RoomEvent.ParticipantConnected, p);
+    if (isNew) this.emit(RoomEvent.ParticipantConnected, p, alreadyHere);
     else {
       if (changed.metadata !== null) this.emit(RoomEvent.ParticipantMetadataChanged, changed.metadata, p);
       if (Object.keys(changed.attributes).length) this.emit(RoomEvent.ParticipantAttributesChanged, changed.attributes, p);

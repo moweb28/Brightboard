@@ -303,7 +303,7 @@ const en = {
     devicesTitle: 'Audio & video',
     cameraBlocked: 'Camera unavailable',
     micBlocked: 'Microphone unavailable',
-    mediaFailed: 'Your camera or mic couldn’t connect, so others can’t see or hear you. Check your internet and try turning it off and on.',
+    mediaFailed: 'Video and sound couldn’t connect, so you may not see or hear each other. Chat and the whiteboard still work. Check your internet, or leave and join again.',
   },
   remote: {
     request: 'Request control',
@@ -754,7 +754,7 @@ const ar: Dict = {
     devicesTitle: 'الصوت والفيديو',
     cameraBlocked: 'الكاميرا غير متاحة',
     micBlocked: 'الميكروفون غير متاح',
-    mediaFailed: 'تعذّر اتصال الكاميرا أو الميكروفون، لذا لا يراك الآخرون أو يسمعونك. تحقق من اتصالك بالإنترنت وجرّب إيقافه وتشغيله.',
+    mediaFailed: 'تعذّر اتصال الصوت والفيديو، لذا قد لا ترون أو تسمعون بعضكم. الدردشة والسبورة تعملان. تحقق من اتصالك بالإنترنت، أو غادر وانضم مرة أخرى.',
   },
   remote: {
     request: 'طلب التحكم',

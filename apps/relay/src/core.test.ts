@@ -322,6 +322,25 @@ describe('defenses', () => {
     expect(a.last('room')!.room.boardOpen).toBe(false);
   });
 
+  it('holds chat-off and a locked board even against a modified guest app', async () => {
+    const a = await join(adminHello());
+    const g = await join(guestHello('Omar'));
+    const s = await join(guestHello('Sara'));
+    const got = (c: FakeConn, topic: string) => c.all('msg').filter((m) => m.topic === topic).length;
+    await room.message(a.id, { t: 'admin', action: { action: 'chat', value: false } });
+    await room.message(g.id, { t: 'send', topic: 'chat', data: 'hi' });
+    expect(got(s, 'chat') + got(a, 'chat')).toBe(0);
+    // Board closed: a guest's board traffic reaches only the admin.
+    await room.message(g.id, { t: 'send', topic: 'board', data: 'x' });
+    expect([got(a, 'board'), got(s, 'board')]).toEqual([1, 0]);
+    await room.message(a.id, { t: 'admin', action: { action: 'board', value: true } });
+    await room.message(g.id, { t: 'send', topic: 'board', data: 'x' });
+    expect([got(a, 'board'), got(s, 'board')]).toEqual([2, 1]);
+    await room.message(a.id, { t: 'admin', action: { action: 'boardLock', value: true } });
+    await room.message(g.id, { t: 'send', topic: 'board', data: 'x' });
+    expect([got(a, 'board'), got(s, 'board')]).toEqual([3, 1]);
+  });
+
   it('honors media passes only for people still in the room', async () => {
     const a = await join(adminHello());
     const g = await join(guestHello());

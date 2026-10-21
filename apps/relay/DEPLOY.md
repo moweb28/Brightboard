@@ -49,7 +49,7 @@ Until you do, `npm run build` in the desktop app stops with a reminder. `npm run
 - Logs: `npx wrangler tail`. Usage: dashboard → Workers & Pages → brightboard, and Realtime → your app.
 
 ## Security check after deploying
-Run the attack script against your live relay. All 11 checks should say `safe`:
+Run the attack script against your live relay. All 13 checks should say `safe`:
 ```
 node attack/attack.mjs https://brightboard.<subdomain>.workers.dev
 ```

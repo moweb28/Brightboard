@@ -1,4 +1,4 @@
-import { CaptureUpdateAction, convertToExcalidrawElements, Excalidraw, exportToBlob, newElementWith } from '@excalidraw/excalidraw';
+import { CaptureUpdateAction, convertToExcalidrawElements, Excalidraw, exportToBlob, MainMenu, newElementWith } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 import type { BinaryFileData, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import { geoShape, type BoardDesign, type GeoShape } from '@classroom/protocol';
@@ -172,6 +172,52 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
     else removeIdea(a, node);
   };
 
+  // Our buttons. Excalidraw hides its top bar for view-only boards, so they're placed over the board then.
+  const actions = (
+    <div className="board-actions">
+      {reading && (
+        <span className="board-pill">
+          <Loader2 size={14} className="spin" /> {t.board.reading}
+        </span>
+      )}
+      {!viewOnly && window.brightboard && (
+        <button className={`board-btn ${snipping ? 'is-active' : ''}`} onClick={() => void snip()} title={t.board.snipTitle}>
+          <Scissors size={16} /> <span className="board-btn-label">{t.board.snip}</span>
+        </button>
+      )}
+      {!viewOnly && <ShapesMenu t={t} onPick={insertShape} />}
+      <button className={`board-btn ${measureOpen ? 'is-active' : ''}`} onClick={() => setMeasureOpen((o) => !o)} title={t.board.measure.buttonTitle} aria-label={t.board.measure.title} aria-pressed={measureOpen}>
+        <Ruler size={16} />
+      </button>
+      <button className={`board-btn ${fullscreen ? 'is-active' : ''}`} onClick={toggleFullscreen} title={fullscreen ? t.board.exitFullscreen : t.board.fullscreen} aria-label={fullscreen ? t.board.exitFullscreen : t.board.fullscreen}>
+        {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+      </button>
+      <MoreMenu
+        t={t}
+        amHost={amHost}
+        canDraw={!viewOnly}
+        design={design}
+        onDesign={pickDesign}
+        onMindMap={() => api.current && insertMindMap(api.current, t.board.rootText)}
+        onExport={() => void exportPng()}
+        grid={gridOn}
+        onToggleGrid={() => setGrid(!gridOn)}
+        labels={settings.measureLabels}
+        onToggleLabels={() => set('measureLabels', !settings.measureLabels)}
+      />
+      {amHost && (
+        <button className={`board-btn ${locked ? 'is-active' : ''}`} onClick={onToggleLock} title={locked ? t.board.unlock : t.board.lock}>
+          {locked ? <Lock size={16} /> : <LockOpen size={16} />}
+        </button>
+      )}
+      {amHost && (
+        <button className="board-btn" onClick={onClose} title={t.board.close}>
+          <X size={16} />
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className={`board ${viewOnly ? 'is-view-only' : ''} ${design !== 'auto' ? 'has-design' : ''} tool-${tool}`} ref={boardRef} onKeyDownCapture={onKeyDownCapture}>
       <Excalidraw
@@ -207,51 +253,17 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
             });
           }
         }}
-        renderTopRightUI={() => (
-          <div className="board-actions">
-            {reading && (
-              <span className="board-pill">
-                <Loader2 size={14} className="spin" /> {t.board.reading}
-              </span>
-            )}
-            {!viewOnly && window.brightboard && (
-              <button className={`board-btn ${snipping ? 'is-active' : ''}`} onClick={() => void snip()} title={t.board.snipTitle}>
-                <Scissors size={16} /> <span className="board-btn-label">{t.board.snip}</span>
-              </button>
-            )}
-            {!viewOnly && <ShapesMenu t={t} onPick={insertShape} />}
-            <button className={`board-btn ${measureOpen ? 'is-active' : ''}`} onClick={() => setMeasureOpen((o) => !o)} title={t.board.measure.buttonTitle} aria-label={t.board.measure.title} aria-pressed={measureOpen}>
-              <Ruler size={16} />
-            </button>
-            <button className={`board-btn ${fullscreen ? 'is-active' : ''}`} onClick={toggleFullscreen} title={fullscreen ? t.board.exitFullscreen : t.board.fullscreen} aria-label={fullscreen ? t.board.exitFullscreen : t.board.fullscreen}>
-              {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
-            <MoreMenu
-              t={t}
-              amHost={amHost}
-              canDraw={!viewOnly}
-              design={design}
-              onDesign={pickDesign}
-              onMindMap={() => api.current && insertMindMap(api.current, t.board.rootText)}
-              onExport={() => void exportPng()}
-              grid={gridOn}
-              onToggleGrid={() => setGrid(!gridOn)}
-              labels={settings.measureLabels}
-              onToggleLabels={() => set('measureLabels', !settings.measureLabels)}
-            />
-            {amHost && (
-              <button className={`board-btn ${locked ? 'is-active' : ''}`} onClick={onToggleLock} title={locked ? t.board.unlock : t.board.lock}>
-                {locked ? <Lock size={16} /> : <LockOpen size={16} />}
-              </button>
-            )}
-            {amHost && (
-              <button className="board-btn" onClick={onClose} title={t.board.close}>
-                <X size={16} />
-              </button>
-            )}
-          </div>
-        )}
-      />
+        renderTopRightUI={viewOnly ? undefined : () => actions}
+      >
+        {/* Excalidraw's own menu, minus its social links. Wiping the whole board is the admin's call. */}
+        <MainMenu>
+          <MainMenu.DefaultItems.SearchMenu />
+          <MainMenu.DefaultItems.Help />
+          {amHost && <MainMenu.DefaultItems.ClearCanvas />}
+          <MainMenu.Separator />
+          <MainMenu.DefaultItems.ChangeCanvasBackground />
+        </MainMenu>
+      </Excalidraw>
       {!viewOnly && tool === 'freedraw' && api.current && (
         <PenBar
           t={t}
@@ -283,6 +295,7 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
           onClose={() => setMeasureOpen(false)}
         />
       )}
+      {viewOnly && <div className="board-view-actions">{actions}</div>}
       {viewOnly && <div className="board-note">{t.board.lockedNote}</div>}
     </div>
   );

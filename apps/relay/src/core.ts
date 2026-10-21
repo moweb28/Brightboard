@@ -154,9 +154,15 @@ export class RoomCore {
         return this.toWatchers(peer, { t: 'peer', peer });
       case 'send': {
         if (peer.waiting || typeof msg.topic !== 'string') return;
+        const guest = peer.role !== 'host';
+        // The admin's switches hold even against a modified app: no guest chat while chat is off,
+        // and while the board is closed or locked a guest's board traffic only reaches admins
+        // (who still need it to get the board back after rejoining).
+        if (guest && msg.topic === 'chat' && !this.meta.chatEnabled) return;
+        const adminsOnly = guest && msg.topic === 'board' && (!this.meta.boardOpen || this.meta.boardLocked);
         const to = Array.isArray(msg.to) ? new Set(msg.to) : null;
         for (const [id, p] of this.peers) {
-          if (id === connId || p.waiting || (to && !to.has(p.id))) continue;
+          if (id === connId || p.waiting || (to && !to.has(p.id)) || (adminsOnly && p.role !== 'host')) continue;
           this.conns.get(id)?.send({ t: 'msg', from: peer.id, topic: msg.topic, data: msg.data });
         }
         return;
