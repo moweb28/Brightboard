@@ -73,6 +73,8 @@ const en = {
     home: 'Home',
     settings: 'Settings',
     join: 'Join',
+    expand: 'Show names',
+    collapse: 'Icons only',
   },
   home: {
     greeting: (part: 'morning' | 'afternoon' | 'evening', name: string) => `Good ${part}, ${name}`,
@@ -537,6 +539,8 @@ const ar: Dict = {
     home: 'الرئيسية',
     settings: 'الإعدادات',
     join: 'انضمام',
+    expand: 'إظهار الأسماء',
+    collapse: 'الأيقونات فقط',
   },
   home: {
     greeting: (part, name) => `${part === 'morning' ? 'صباح الخير' : 'مساء الخير'}، ${name}`,

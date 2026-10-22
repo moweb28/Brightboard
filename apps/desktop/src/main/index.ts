@@ -106,6 +106,8 @@ function createWindow() {
     autoHideMenuBar: true,
     webPreferences: { preload: join(import.meta.dirname, '../preload/index.cjs'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
+  // No File/Edit/View menu (Alt used to reveal it); copy, paste and undo still work in text fields.
+  mainWindow.removeMenu();
   mainWindow.on('closed', () => (mainWindow = null));
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://') || url.startsWith('http://')) shell.openExternal(url);

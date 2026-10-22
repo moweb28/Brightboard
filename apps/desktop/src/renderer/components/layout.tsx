@@ -1,10 +1,10 @@
-import { Home, Languages, LogIn, Moon, Plus, Settings as SettingsIcon, Sun, Volume2 } from 'lucide-react';
+import { Home, Languages, LogIn, Moon, PanelLeftClose, PanelLeftOpen, Plus, Settings as SettingsIcon, Sun, Volume2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import icon from '../../../build/icon.svg';
 import { useNavigate, type Route } from '../lib/nav';
 import { useSettings, useT } from '../lib/settings';
 import { useProfile, useStore } from '../lib/store';
-import { Avatar, IconButton, SpaceIcon } from './ui';
+import { Avatar, SpaceIcon } from './ui';
 
 export function Logo({ small }: { small?: boolean }) {
   return (
@@ -56,109 +56,116 @@ export function useRailSpaces(): RailSpace[] {
   ];
 }
 
-/** Rail of spaces | sidebar | page. */
+/** Sidebar | page. */
 export function AppShell({ active, spaceId, children }: { active: Route['name']; spaceId?: string; children: ReactNode }) {
-  const profile = useProfile();
-  const navigate = useNavigate();
-  const t = useT();
-  const { live } = useStore();
-  const spaces = useRailSpaces();
-  const items = [
-    { route: { name: 'home' } as Route, icon: Home, label: t.nav.home },
-    { route: { name: 'join' } as Route, icon: LogIn, label: t.nav.join },
-    { route: { name: 'settings' } as Route, icon: SettingsIcon, label: t.nav.settings },
-  ];
-  const liveSpaces = spaces.filter((s) => live.has(s.code));
   return (
     <div className="app-shell">
-      <SpaceRail spaces={spaces} activeId={active === 'space' ? spaceId : undefined} homeActive={active === 'home'} />
-      <nav className="sidebar" aria-label="Main">
-        <div className="sidebar-head">Brightboard</div>
-        <div className="sidebar-scroll">
-          <div className="nav-list">
-            {items.map(({ route, icon: Icon, label }) => (
-              <button key={route.name} className={`nav-item ${active === route.name ? 'is-active' : ''}`} onClick={() => navigate(route)}>
-                <Icon size={20} />
-                {label}
-              </button>
-            ))}
-          </div>
-          {liveSpaces.length > 0 && (
-            <div className="nav-group">
-              <div className="nav-group-title">{t.home.liveNow}</div>
-              {liveSpaces.map((s) => (
-                <button key={s.id} className="voice-row" onClick={() => navigate({ name: 'space', id: s.id })}>
-                  <Volume2 size={18} />
-                  <span>{s.title}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="user-panel">
-          <button className="user-panel-who" onClick={() => navigate({ name: 'settings' })}>
-            <Avatar name={profile.name} color={profile.color} picture={profile.picture} size={34} />
-            <span className="status-dot" aria-hidden />
-            <span className="user-card-text">
-              <strong>{profile.name}</strong>
-              {profile.about && <span className="muted small">{profile.about}</span>}
-            </span>
-          </button>
-          <IconButton icon={SettingsIcon} label={t.nav.settings} onClick={() => navigate({ name: 'settings' })} />
-        </div>
-      </nav>
-      <main className="app-main">{children}</main>
+      <Sidebar active={active} spaceId={spaceId} />
+      <main className={`app-main ${active === 'home' ? 'is-home' : ''}`}>{children}</main>
     </div>
   );
 }
 
-/** Discord-style column of space icons: a pill marks the open one, a green dot marks a live call. */
-function SpaceRail({ spaces, activeId, homeActive }: { spaces: RailSpace[]; activeId?: string; homeActive: boolean }) {
+/**
+ * One sidebar: pages, then your spaces, then you. Folded it's a strip of icons (names show on hover);
+ * unfolded the names show too. It remembers how you left it.
+ */
+function Sidebar({ active, spaceId }: { active: Route['name']; spaceId?: string }) {
+  const profile = useProfile();
   const navigate = useNavigate();
   const t = useT();
   const { live } = useStore();
+  const { settings, set } = useSettings();
+  const open = settings.sidebarOpen;
+  const spaces = useRailSpaces();
   const [tip, setTip] = useState<{ text: string; top: number; left: number } | null>(null);
-  const showTip = (text: string, el: HTMLElement) => {
-    const r = el.getBoundingClientRect();
-    const rtl = document.documentElement.dir === 'rtl';
-    setTip({ text, top: r.top + r.height / 2, left: rtl ? r.left - 12 : r.right + 12 });
-  };
-  const tipProps = (text: string) => ({
+  const rtl = document.documentElement.dir === 'rtl';
+  // Folded, every button names itself in a tooltip (and to screen readers either way).
+  const named = (text: string) => ({
     'aria-label': text,
-    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => showTip(text, e.currentTarget),
-    onFocus: (e: React.FocusEvent<HTMLElement>) => showTip(text, e.currentTarget),
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+      if (open) return;
+      const r = e.currentTarget.getBoundingClientRect();
+      setTip({ text, top: r.top + r.height / 2, left: rtl ? r.left - 12 : r.right + 12 });
+    },
     onMouseLeave: () => setTip(null),
     onBlur: () => setTip(null),
   });
+  const go = (route: Route) => {
+    setTip(null);
+    navigate(route);
+  };
+  const pages = [
+    { route: { name: 'home' } as Route, icon: Home, label: t.nav.home },
+    { route: { name: 'join' } as Route, icon: LogIn, label: t.nav.join },
+    { route: { name: 'settings' } as Route, icon: SettingsIcon, label: t.nav.settings },
+  ];
+
   return (
-    <aside className="rail" aria-label={t.home.yourSpaces}>
-      <div className={`rail-item ${homeActive ? 'is-active' : ''}`}>
-        <span className="rail-pill" />
-        <button className="rail-btn rail-home" onClick={() => navigate({ name: 'home' })} {...tipProps(t.nav.home)}>
+    <nav className={`sb ${open ? 'is-open' : ''}`} aria-label="Main">
+      <div className="sb-head">
+        <button className="sb-logo" onClick={() => go({ name: 'home' })} {...named('Brightboard')}>
           <img src={icon} alt="" />
+          <span className="sb-text">Brightboard</span>
+        </button>
+        <button className="sb-toggle" onClick={() => set('sidebarOpen', !open)} {...named(open ? t.nav.collapse : t.nav.expand)} aria-expanded={open}>
+          {open ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>
       </div>
-      <div className="rail-sep" />
-      {spaces.map((s) => (
-        <div key={s.id} className={`rail-item ${s.id === activeId ? 'is-active' : ''} ${live.has(s.code) ? 'is-live' : ''}`}>
-          <span className="rail-pill" />
-          <button className="rail-btn rail-space" onClick={() => navigate({ name: 'space', id: s.id })} {...tipProps(s.title)}>
-            <SpaceIcon title={s.title} color={s.color} picture={s.picture} size={48} />
-            {live.has(s.code) && <span className="rail-live" />}
+
+      <div className="sb-scroll">
+        <div className="sb-group">
+          {pages.map(({ route, icon: Icon, label }) => (
+            <button key={route.name} className={`sb-item ${active === route.name ? 'is-active' : ''}`} onClick={() => go(route)} {...named(label)}>
+              <span className="sb-icon">
+                <Icon size={20} />
+              </span>
+              <span className="sb-text">{label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="sb-group">
+          <div className="sb-title">{t.home.yourSpaces}</div>
+          {spaces.map((s) => (
+            <button key={s.id} className={`sb-item sb-space ${active === 'space' && s.id === spaceId ? 'is-active' : ''}`} onClick={() => go({ name: 'space', id: s.id })} {...named(s.title)}>
+              <span className="sb-icon">
+                <SpaceIcon title={s.title} color={s.color} picture={s.picture} size={32} />
+                {live.has(s.code) && <span className="sb-live" />}
+              </span>
+              <span className="sb-text">{s.title}</span>
+              {live.has(s.code) && (
+                <span className="sb-badge">
+                  <Volume2 size={13} /> {t.home.liveNow}
+                </span>
+              )}
+            </button>
+          ))}
+          <button className="sb-item sb-add" onClick={() => go({ name: 'home', newSpace: true })} {...named(t.home.newSpace)}>
+            <span className="sb-icon">
+              <Plus size={20} />
+            </span>
+            <span className="sb-text">{t.home.newSpace}</span>
           </button>
         </div>
-      ))}
-      <div className="rail-item">
-        <span className="rail-pill" />
-        <button className="rail-btn rail-add" onClick={() => navigate({ name: 'home', newSpace: true })} {...tipProps(t.home.newSpace)}>
-          <Plus size={24} />
-        </button>
       </div>
+
+      <button className="sb-item sb-user" onClick={() => go({ name: 'settings' })} {...named(profile.name)}>
+        <span className="sb-icon">
+          <Avatar name={profile.name} color={profile.color} picture={profile.picture} size={32} />
+          <span className="status-dot" aria-hidden />
+        </span>
+        <span className="sb-text user-card-text">
+          <strong>{profile.name}</strong>
+          {profile.about && <span className="muted small">{profile.about}</span>}
+        </span>
+      </button>
+
       {tip && (
-        <div className="rail-tip" style={{ top: tip.top, ...(document.documentElement.dir === 'rtl' ? { right: window.innerWidth - tip.left } : { left: tip.left }) }}>
+        <div className="rail-tip" style={{ top: tip.top, ...(rtl ? { right: window.innerWidth - tip.left } : { left: tip.left }) }}>
           {tip.text}
         </div>
       )}
-    </aside>
+    </nav>
   );
 }

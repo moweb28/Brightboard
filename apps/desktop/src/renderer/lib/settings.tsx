@@ -33,6 +33,8 @@ export interface Settings {
   boardDesign: BoardDesign;
   /** How names show on video tiles (just for you). */
   nameTags: NameTagStyle;
+  /** The main sidebar shows names next to its icons. */
+  sidebarOpen: boolean;
   /** Where the other videos go when something is in focus (board, screen, speaker): just for you. */
   videoStrip: VideoStrip;
   /** Whiteboard measuring: the unit, and how many board pixels make one unit (one grid square). */
@@ -71,6 +73,7 @@ const DEFAULTS: Settings = {
   boardDesign: 'auto',
   nameTags: 'tag',
   videoStrip: 'side',
+  sidebarOpen: false,
   measureUnit: 'cm',
   measureScale: 20,
   measureLabels: true,
