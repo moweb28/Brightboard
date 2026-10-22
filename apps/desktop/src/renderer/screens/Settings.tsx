@@ -8,8 +8,8 @@ import { AppShell } from '../components/layout';
 import { useToast } from '../components/toast';
 import { PicturePicker } from '../components/PicturePicker';
 import { Avatar, Button, ColorPicker, Field, Segmented, Toggle } from '../components/ui';
-import { BACKGROUND_IMAGES, backgroundsSupported } from '../lib/effects';
-import { BACKGROUNDS, useSettings, useT } from '../lib/settings';
+import { BackgroundPicker } from '../components/BackgroundPicker';
+import { useSettings, useT } from '../lib/settings';
 import { useProfile, useStore } from '../lib/store';
 
 type Section = 'profile' | 'appearance' | 'language' | 'audioVideo' | 'sessions' | 'notifications' | 'data';
@@ -147,28 +147,14 @@ function AudioVideoSection() {
   const t = useT();
   const profile = useProfile();
   const { settings, set } = useSettings();
-  const supported = backgroundsSupported();
   return (
     <div className="stack">
       <DeviceCheck name={profile.name} color={profile.color} picture={profile.picture} />
       <div className="field">
         <span className="field-label">{t.settings.background}</span>
-        {supported ? (
-          <div className="bg-grid" role="radiogroup" aria-label={t.settings.background}>
-            {BACKGROUNDS.map((bg) => (
-              <button key={bg} role="radio" aria-checked={settings.background === bg} className={`bg-option ${settings.background === bg ? 'is-active' : ''}`} onClick={() => set('background', bg)}>
-                <span className={`bg-thumb bg-thumb-${bg}`} style={BACKGROUND_IMAGES[bg] ? { backgroundImage: `url(${BACKGROUND_IMAGES[bg]})` } : undefined} />
-                <span className="small">{t.settings.backgrounds[bg]}</span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="muted small">{t.settings.backgroundUnsupported}</p>
-        )}
+        <BackgroundPicker />
       </div>
       <Toggle label={t.settings.mirrorVideo} description={t.settings.mirrorVideoDesc} checked={settings.mirror} onChange={(v) => set('mirror', v)} />
-      <Toggle label={t.settings.joinMuted} checked={settings.joinMuted} onChange={(v) => set('joinMuted', v)} />
-      <Toggle label={t.settings.joinCameraOff} checked={settings.joinCameraOff} onChange={(v) => set('joinCameraOff', v)} />
     </div>
   );
 }

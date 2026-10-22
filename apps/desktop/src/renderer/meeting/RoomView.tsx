@@ -12,6 +12,7 @@ import {
   MonitorX,
   FileText,
   Presentation,
+  ChevronUp,
   CircleDot,
   MousePointer2,
   PhoneOff,
@@ -24,7 +25,7 @@ import {
   WifiOff,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InviteBox } from '../components/InviteBox';
 import { Logo } from '../components/layout';
 import { useToast, useToastDismiss } from '../components/toast';
@@ -35,6 +36,7 @@ import { formatDuration } from '../lib/format';
 import { useSettings, useT } from '../lib/settings';
 import { sounds } from '../lib/sounds';
 import { ChatPanel } from './ChatPanel';
+import { CamMenu, DockPop, MicMenu } from './DockPop';
 import { MeetingSettings } from './MeetingSettings';
 import { useModerate } from './moderation';
 import { allParticipants, canShareScreen, handUp, isWaiting, nameOf, roomMetaOf, useRoomVersion } from './participants';
@@ -72,7 +74,11 @@ export function RoomView({ join, choices, password }: Props) {
   const waiting = isWaiting(local);
   const moderate = useModerate(join.roomName);
 
-  const [panel, setPanel] = useState<'chat' | 'people' | 'transcript' | null>(null);
+  const [panel, setPanel] = useState<'transcript' | null>(null);
+  // Pop-ups that rise from their dock button: chat, people, and the mic/camera choices.
+  const [pop, setPop] = useState<'chat' | 'people' | 'mic' | 'cam' | null>(null);
+  const togglePop = (p: NonNullable<typeof pop>) => setPop((cur) => (cur === p ? null : p));
+  const closePop = useCallback(() => setPop(null), []);
   const [layout, setLayout] = useState<Layout>('grid');
   const [pinned, setPinned] = useState<string | null>(null);
   const [picker, setPicker] = useState(false);
@@ -84,9 +90,9 @@ export function RoomView({ join, choices, password }: Props) {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
-  const chat = useChat(room, panel === 'chat', (m) => {
+  const chat = useChat(room, pop === 'chat', (m) => {
     if (settingsRef.current.soundChat) sounds.chat();
-    if (panel !== 'chat') toast({ icon: MessageSquare, text: `${m.fromName}: ${m.text.slice(0, 80)}`, action: { label: t.meeting.chat, onClick: () => setPanel('chat') } });
+    if (pop !== 'chat') toast({ icon: MessageSquare, text: `${m.fromName}: ${m.text.slice(0, 80)}`, action: { label: t.meeting.chat, onClick: () => setPop('chat') } });
   });
   const reactions = useReactions(room);
   const remote = useRemote(room);
@@ -167,6 +173,7 @@ export function RoomView({ join, choices, password }: Props) {
     room.on(RoomEvent.ParticipantDisconnected, onLeft);
     return () => {
       room.off(RoomEvent.MediaFailed, onMediaFailed);
+      dismissToast('media-failed'); // belongs to this call only
       room.off(RoomEvent.ParticipantConnected, onJoin);
       room.off(RoomEvent.ParticipantAttributesChanged, onAttrs);
       room.off(RoomEvent.TrackMuted, onMuted);
@@ -174,6 +181,20 @@ export function RoomView({ join, choices, password }: Props) {
       room.off(RoomEvent.ParticipantDisconnected, onLeft);
     };
   }, [room, amHost, t, toast, dismissToast, moderate]);
+
+  // Sharing rights come and go with the admin: say so, and stop a share that's no longer allowed.
+  const mayShare = canShareScreen(local);
+  const hadShare = useRef<boolean | null>(null); // null: not in the call yet, so nothing to compare with
+  useEffect(() => {
+    if (amHost || waiting) return void (hadShare.current = null);
+    if (hadShare.current === null || hadShare.current === mayShare) return void (hadShare.current = mayShare);
+    hadShare.current = mayShare;
+    if (mayShare) toast({ icon: MonitorUp, text: t.meeting.shareAllowed });
+    else {
+      if (local.isScreenShareEnabled) void local.setScreenShareEnabled(false);
+      toast({ icon: MonitorX, text: t.meeting.shareRevoked, tone: 'warn' });
+    }
+  }, [mayShare, amHost, waiting, local, toast, t]);
 
   const toggleMic = async () => {
     selfMuting.current = true;
@@ -302,16 +323,30 @@ export function RoomView({ join, choices, password }: Props) {
           />
           <ReactionLayer items={reactions.items} />
         </div>
-        {panel === 'chat' && <ChatPanel room={room} chat={chat} canSend={chatAllowed} onClose={() => setPanel(null)} />}
         {panel === 'transcript' && <TranscriptPanel tx={tx} onClose={() => setPanel(null)} />}
-        {panel === 'people' && <PeoplePanel room={room} spaceId={join.roomName} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} onClose={() => setPanel(null)} />}
       </div>
 
       <footer className="dock-wrap">
         <nav className="dock" aria-label={t.meeting.settings}>
-          <Ctrl icon={local.isMicrophoneEnabled ? Mic : MicOff} label={local.isMicrophoneEnabled ? t.meeting.micOn : t.meeting.micOff} off={!local.isMicrophoneEnabled} onClick={toggleMic} />
-          <Ctrl icon={local.isCameraEnabled ? Video : VideoOff} label={local.isCameraEnabled ? t.meeting.cameraOn : t.meeting.cameraOff} off={!local.isCameraEnabled} onClick={toggleCam} />
-          <Ctrl icon={local.isScreenShareEnabled ? MonitorX : MonitorUp} label={local.isScreenShareEnabled ? t.meeting.stopShare : t.meeting.share} active={local.isScreenShareEnabled} onClick={toggleShare} />
+          <span className="dock-anchor">
+            <Ctrl icon={local.isMicrophoneEnabled ? Mic : MicOff} label={local.isMicrophoneEnabled ? t.meeting.micOn : t.meeting.micOff} off={!local.isMicrophoneEnabled} onClick={toggleMic} />
+            <Caret label={t.meeting.micChoices} open={pop === 'mic'} onClick={() => togglePop('mic')} />
+            {pop === 'mic' && (
+              <DockPop light onClose={closePop}>
+                <MicMenu room={room} onSettings={() => (setPop(null), setDevicesOpen(true))} />
+              </DockPop>
+            )}
+          </span>
+          <span className="dock-anchor">
+            <Ctrl icon={local.isCameraEnabled ? Video : VideoOff} label={local.isCameraEnabled ? t.meeting.cameraOn : t.meeting.cameraOff} off={!local.isCameraEnabled} onClick={toggleCam} />
+            <Caret label={t.meeting.camChoices} open={pop === 'cam'} onClick={() => togglePop('cam')} />
+            {pop === 'cam' && (
+              <DockPop light wide onClose={closePop}>
+                <CamMenu room={room} onSettings={() => (setPop(null), setDevicesOpen(true))} />
+              </DockPop>
+            )}
+          </span>
+          {canShareScreen(local) && <Ctrl icon={local.isScreenShareEnabled ? MonitorX : MonitorUp} label={local.isScreenShareEnabled ? t.meeting.stopShare : t.meeting.share} active={local.isScreenShareEnabled} onClick={toggleShare} />}
           <span className="dock-sep" aria-hidden />
           {!amHost && <Ctrl icon={Hand} label={handUp(local) ? t.meeting.lowerHand : t.meeting.raiseHand} active={handUp(local)} onClick={toggleHand} />}
           <Menu
@@ -322,8 +357,22 @@ export function RoomView({ join, choices, password }: Props) {
           />
           {amHost && <Ctrl icon={Presentation} label={meta.boardOpen ? t.board.close : t.board.open} active={meta.boardOpen} onClick={() => moderate({ action: 'board', value: !meta.boardOpen })} />}
           {!amHost && meta.guestsCanBoard && <Ctrl icon={Presentation} label={meta.boardOpen ? t.board.isOpen : t.board.open} active={meta.boardOpen} onClick={() => !meta.boardOpen && moderate({ action: 'board', value: true })} />}
-          <Ctrl icon={MessageSquare} label={t.meeting.chat} active={panel === 'chat'} badge={chat.unread} onClick={() => setPanel(panel === 'chat' ? null : 'chat')} />
-          <Ctrl icon={Users} label={t.meeting.people} active={panel === 'people'} badge={guestsWaiting} count={people} onClick={() => setPanel(panel === 'people' ? null : 'people')} />
+          <span className="dock-anchor">
+            <Ctrl icon={MessageSquare} label={t.meeting.chat} active={pop === 'chat'} badge={chat.unread} onClick={() => togglePop('chat')} />
+            {pop === 'chat' && (
+              <DockPop onClose={closePop}>
+                <ChatPanel room={room} chat={chat} canSend={chatAllowed} onClose={closePop} />
+              </DockPop>
+            )}
+          </span>
+          <span className="dock-anchor">
+            <Ctrl icon={Users} label={t.meeting.people} active={pop === 'people'} badge={guestsWaiting} count={people} onClick={() => togglePop('people')} />
+            {pop === 'people' && (
+              <DockPop onClose={closePop}>
+                <PeoplePanel room={room} spaceId={join.roomName} meta={meta} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate} onClose={closePop} />
+              </DockPop>
+            )}
+          </span>
           <span className="dock-sep" aria-hidden />
           <LayoutMenu layout={layout} setLayout={setLayout} />
           {tx.available && (
@@ -419,6 +468,15 @@ function Ctrl({ icon: Icon, label, onClick, off, active, rec, badge, count }: { 
       <Icon size={21} strokeWidth={2.2} />
       {!!badge && <span className="dock-badge">{badge > 99 ? '99+' : badge}</span>}
       {!badge && count !== undefined && <span className="dock-count">{count}</span>}
+    </button>
+  );
+}
+
+/** The small arrow on the mic and camera buttons: device (and background) choices. */
+function Caret({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {
+  return (
+    <button className={`dock-caret ${open ? 'is-open' : ''}`} onClick={onClick} aria-label={label} aria-expanded={open} title={label}>
+      <ChevronUp size={13} strokeWidth={2.6} />
     </button>
   );
 }

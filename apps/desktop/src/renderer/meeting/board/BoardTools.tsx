@@ -1,6 +1,6 @@
 import { BOARD_DESIGNS, GEO_SHAPES, GEO_TRIANGLES, geoShape, type BoardDesign, type GeoShape } from '@classroom/protocol';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-import { Check, ChevronDown, Download, GitBranch, Grid3x3, Hexagon, Highlighter, Tag, MoreHorizontal, Pen, PenLine, PenTool, Shapes, Type } from 'lucide-react';
+import { Check, ChevronDown, Circle, Diamond, Download, GitBranch, Grid3x3, Highlighter, Minus, MoreHorizontal, MoveRight, Pen, Trash2, PenLine, PenTool, Shapes, Square, Tag, Type } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Dict } from '../../lib/i18n';
 
@@ -233,6 +233,8 @@ interface MoreProps {
   onDesign(d: BoardDesign): void;
   onMindMap(): void;
   onExport(): void;
+  /** Admin only: wipe the board for everyone. */
+  onClear?: () => void;
   /** Grid lines on this board (just for you); one square is one measuring unit. */
   grid: boolean;
   onToggleGrid(): void;
@@ -242,7 +244,7 @@ interface MoreProps {
 }
 
 /** Mind map, save as image, and (admin) the board look. */
-export function MoreMenu({ t, amHost, canDraw, design, onDesign, onMindMap, onExport, grid, onToggleGrid, labels, onToggleLabels }: MoreProps) {
+export function MoreMenu({ t, amHost, canDraw, design, onDesign, onMindMap, onExport, onClear, grid, onToggleGrid, labels, onToggleLabels }: MoreProps) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
   const run = (fn: () => void) => () => {
@@ -251,8 +253,8 @@ export function MoreMenu({ t, amHost, canDraw, design, onDesign, onMindMap, onEx
   };
   return (
     <div className="menu-anchor" ref={ref}>
-      <button className={`board-btn ${open ? 'is-active' : ''}`} onClick={() => setOpen((o) => !o)} title={t.board.more} aria-label={t.board.more} aria-expanded={open}>
-        <MoreHorizontal size={16} />
+      <button className={`bar-btn ${open ? 'is-active' : ''}`} onClick={() => setOpen((o) => !o)} title={t.board.more} aria-label={t.board.more} aria-expanded={open}>
+        <MoreHorizontal size={18} />
       </button>
       {open && (
         <div className="board-pop">
@@ -272,6 +274,11 @@ export function MoreMenu({ t, amHost, canDraw, design, onDesign, onMindMap, onEx
           <button className="pop-row" onClick={run(onExport)}>
             <Download size={16} /> {t.board.exportPng}
           </button>
+          {onClear && (
+            <button className="pop-row is-danger" onClick={run(onClear)}>
+              <Trash2 size={16} /> {t.board.clear}
+            </button>
+          )}
           {amHost && (
             <>
               <p className="pop-title">{t.board.designTitle}</p>
@@ -311,30 +318,49 @@ function ShapeIcon({ kind }: { kind: GeoShape }) {
   );
 }
 
-/** Ready-made geometric shapes: click one and it lands in the middle of the board, sized in units. */
-export function ShapesMenu({ t, onPick }: { t: Dict; onPick(kind: GeoShape): void }) {
+/** Excalidraw's own drawing tools that live in the Shapes menu (drag on the board to draw). */
+export const DRAW_TOOLS = ['rectangle', 'diamond', 'ellipse', 'arrow', 'line'] as const;
+export type DrawTool = (typeof DRAW_TOOLS)[number];
+const DRAW_ICONS: Record<DrawTool, typeof Square> = { rectangle: Square, diamond: Diamond, ellipse: Circle, arrow: MoveRight, line: Minus };
+
+/**
+ * Every shape in one place: draw-it-yourself tools (drag on the board) and ready-made
+ * geometric shapes (land in the middle of the board, sized in units).
+ */
+export function ShapesMenu({ t, tool, onTool, onPick }: { t: Dict; tool: string; onTool(tool: DrawTool): void; onPick(kind: GeoShape): void }) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
+  const close = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
   const tile = (kind: GeoShape) => (
-    <button
-      key={kind}
-      className="shape-tile"
-      onClick={() => {
-        setOpen(false);
-        onPick(kind);
-      }}
-    >
+    <button key={kind} className="shape-tile" onClick={close(() => onPick(kind))}>
       <ShapeIcon kind={kind} />
       <span>{t.board.geo[kind]}</span>
     </button>
   );
+  const drawing = (DRAW_TOOLS as readonly string[]).includes(tool);
+  const Current = drawing ? DRAW_ICONS[tool as DrawTool] : Shapes;
   return (
     <div className="menu-anchor" ref={ref}>
-      <button className={`board-btn ${open ? 'is-active' : ''}`} onClick={() => setOpen((o) => !o)} title={t.board.shapesTitle} aria-expanded={open}>
-        <Hexagon size={16} /> <span className="board-btn-label">{t.board.shapes}</span>
+      <button className={`bar-btn bar-btn-menu ${open || drawing ? 'is-active' : ''}`} onClick={() => setOpen((o) => !o)} title={t.board.shapesTitle} aria-label={t.board.shapes} aria-expanded={open}>
+        <Current size={18} />
+        <ChevronDown size={12} className="bar-chevron" />
       </button>
       {open && (
         <div className="board-pop shapes-pop">
+          <p className="pop-title">{t.board.drawShapes}</p>
+          <div className="draw-row">
+            {DRAW_TOOLS.map((d) => {
+              const Icon = DRAW_ICONS[d];
+              return (
+                <button key={d} className={`draw-tool ${tool === d ? 'is-on' : ''}`} onClick={close(() => onTool(d))} title={t.board.drawTools[d]} aria-label={t.board.drawTools[d]}>
+                  <Icon size={20} />
+                </button>
+              );
+            })}
+          </div>
           <p className="pop-title">{t.board.shapes}</p>
           <div className="shape-grid">{GEO_SHAPES.map(tile)}</div>
           <p className="pop-title">{t.board.triangles}</p>

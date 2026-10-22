@@ -249,6 +249,24 @@ const realKey = 'r'.repeat(48);
   h.close();
 }
 
+// 14. Modified app: shares a screen without the admin's permission.
+{
+  const room = code();
+  const h = await open(room);
+  send(h, admin(realKey, '', { guestsCanShare: false }));
+  await sleep(300);
+  const g = await open(room);
+  send(g, guest('evil'));
+  await sleep(300);
+  const meta = { sessionId: 'x', trackName: 'y' };
+  send(g, { t: 'tracks', tracks: { screen: meta, screenAudio: meta } });
+  await sleep(400);
+  const seen = h.msgs.filter((m) => m.t === 'peer' && m.peer.name === 'evil').some((m) => m.peer.tracks?.screen || m.peer.tracks?.screenAudio);
+  report('screen share without permission', seen, `admin saw the screen: ${seen}`);
+  g.close();
+  h.close();
+}
+
 const bad = results.filter((r) => r.vulnerable).length;
 console.log(`\n${bad} of ${results.length} checks vulnerable`);
 process.exit(0);

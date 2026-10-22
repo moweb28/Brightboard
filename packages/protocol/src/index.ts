@@ -32,8 +32,8 @@ export interface SpaceSettings {
 
 /** Default settings for each kind of space; the host can change any of them later. */
 export const KIND_PRESETS: Record<SpaceKind, Omit<SpaceSettings, 'locked'>> = {
-  hangout: { waitingRoom: false, muteOnJoin: false, guestsCanShare: true, guestsCanBoard: true, chatEnabled: true },
-  meeting: { waitingRoom: true, muteOnJoin: false, guestsCanShare: true, guestsCanBoard: true, chatEnabled: true },
+  hangout: { waitingRoom: false, muteOnJoin: false, guestsCanShare: false, guestsCanBoard: true, chatEnabled: true },
+  meeting: { waitingRoom: true, muteOnJoin: false, guestsCanShare: false, guestsCanBoard: true, chatEnabled: true },
   class: { waitingRoom: true, muteOnJoin: true, guestsCanShare: false, guestsCanBoard: true, chatEnabled: true },
   event: { waitingRoom: false, muteOnJoin: true, guestsCanShare: false, guestsCanBoard: false, chatEnabled: true },
 };

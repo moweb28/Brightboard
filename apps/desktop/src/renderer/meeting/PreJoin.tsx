@@ -5,7 +5,7 @@ import { DeviceCheck } from '../components/DeviceCheck';
 import { Logo, QuickPrefs } from '../components/layout';
 import { Badge, Button } from '../components/ui';
 import { useProfile } from '../lib/store';
-import { useSettings, useT } from '../lib/settings';
+import { useT } from '../lib/settings';
 
 export interface JoinChoices {
   mic: boolean;
@@ -14,10 +14,10 @@ export interface JoinChoices {
 
 export function PreJoin({ join, onJoin, onCancel }: { join: JoinInfo; onJoin: (c: JoinChoices) => void; onCancel: () => void }) {
   const t = useT();
-  const { settings } = useSettings();
   const profile = useProfile();
-  const [mic, setMic] = useState(!settings.joinMuted);
-  const [cam, setCam] = useState(!settings.joinCameraOff);
+  // Everyone walks in muted with the camera off; turn them on here or once inside.
+  const [mic, setMic] = useState(false);
+  const [cam, setCam] = useState(false);
   const name = profile.name;
   const color = profile.color;
 

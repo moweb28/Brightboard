@@ -6,8 +6,8 @@ import { dictionaries, type Dict, type Lang } from './i18n';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export const SCENES = ['sunrise', 'ocean', 'forest', 'blossom', 'midnight'] as const;
 export type Scene = (typeof SCENES)[number];
-export const BACKGROUNDS = ['none', 'blur', 'classroom', 'library', 'calm'] as const;
-export type Background = (typeof BACKGROUNDS)[number];
+/** A built-in name from effects.ts (none, blur, a picture) or `custom:<id>` for your own picture. */
+export type Background = string;
 
 /** Per-device preferences, kept in local storage. */
 export interface Settings {
@@ -18,8 +18,6 @@ export interface Settings {
   micId: string;
   speakerId: string;
   mirror: boolean;
-  joinMuted: boolean;
-  joinCameraOff: boolean;
   background: Background;
   soundChat: boolean;
   soundJoin: boolean;
@@ -62,8 +60,6 @@ const DEFAULTS: Settings = {
   micId: '',
   speakerId: '',
   mirror: true,
-  joinMuted: false,
-  joinCameraOff: true,
   background: 'none',
   soundChat: true,
   soundJoin: true,

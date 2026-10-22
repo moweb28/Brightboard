@@ -5,6 +5,7 @@ import {
   type AdminAction,
   type ClientMessage,
   type PeerInfo,
+  type PeerTracks,
   type RoomMeta,
   type ServerMessage,
   type SharedSpaceInfo,
@@ -80,7 +81,7 @@ export class RoomCore {
       kind: 'meeting',
       waitingRoom: false,
       muteOnJoin: false,
-      guestsCanShare: true,
+      guestsCanShare: false,
       guestsCanBoard: true,
       chatEnabled: true,
       locked: false,
@@ -147,7 +148,7 @@ export class RoomCore {
     switch (msg.t) {
       case 'tracks':
         if (peer.waiting) return;
-        peer.tracks = msg.tracks ?? {};
+        peer.tracks = shareable(peer, msg.tracks ?? {});
         return this.toWatchers(peer, { t: 'peer', peer });
       case 'state':
         peer.state = { ...peer.state, ...pickState(msg.state) };
@@ -342,6 +343,7 @@ export class RoomCore {
       case 'allowShare':
         if (!target) return;
         target[1].canShare = action.value;
+        target[1].tracks = shareable(target[1], target[1].tracks);
         return this.toWatchers(target[1], { t: 'peer', peer: target[1] }, true);
       case 'lock':
         return this.setMeta({ locked: action.value });
@@ -357,8 +359,18 @@ export class RoomCore {
         return this.setMeta({ boardLocked: action.value });
       case 'spotlight':
         return this.setMeta({ spotlight: action.identity && this.byPeerId(action.identity) ? action.identity : null });
-      case 'settings':
-        return this.setMeta(pickSettings(action.patch));
+      case 'settings': {
+        const patch = pickSettings(action.patch);
+        // "Guests can share" applies to everyone already here too, not just to people who join later.
+        if (patch.guestsCanShare !== undefined)
+          for (const p of this.peers.values())
+            if (p.role !== 'host' && p.canShare !== patch.guestsCanShare) {
+              p.canShare = patch.guestsCanShare;
+              p.tracks = shareable(p, p.tracks);
+              this.toWatchers(p, { t: 'peer', peer: p }, true);
+            }
+        return this.setMeta(patch);
+      }
       case 'space':
         this.applySpace(action.space, action.password);
         return this.broadcastRoom();
@@ -463,6 +475,13 @@ function cleanSpace(s: unknown): SharedSpaceInfo {
     /* not plain data */
   }
   return { title: text(o.title, MAX_TITLE), color: cleanColor(o.color), picture: cleanPicture(o.picture), kind, schedule, adminName: text(o.adminName, MAX_NAME) };
+}
+
+/** A guest's screen only reaches others while the admin lets them share (even from a modified app). */
+function shareable(peer: PeerInfo, tracks: PeerTracks): PeerTracks {
+  if (peer.role === 'host' || peer.canShare) return tracks;
+  const { screen: _s, screenAudio: _a, ...rest } = tracks;
+  return rest;
 }
 
 function pickState(s: unknown) {

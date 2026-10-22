@@ -341,6 +341,21 @@ describe('defenses', () => {
     expect([got(a, 'board'), got(s, 'board')]).toEqual([3, 1]);
   });
 
+  it("hides a guest's screen until the admin lets them share", async () => {
+    const a = await join(adminHello());
+    const g = await join(guestHello());
+    const id = g.last('welcome')!.you.id;
+    const meta = { sessionId: 's', trackName: 't' };
+    await room.message(g.id, { t: 'tracks', tracks: { mic: meta, screen: meta } });
+    expect(Object.keys(a.last('peer')!.peer.tracks)).toEqual(['mic']);
+    await room.message(a.id, { t: 'admin', action: { action: 'allowShare', identity: id, value: true } });
+    await room.message(g.id, { t: 'tracks', tracks: { mic: meta, screen: meta } });
+    expect(Object.keys(a.last('peer')!.peer.tracks)).toEqual(['mic', 'screen']);
+    await room.message(a.id, { t: 'admin', action: { action: 'settings', patch: { guestsCanShare: false } } });
+    expect(a.last('peer')!.peer.canShare).toBe(false);
+    expect(Object.keys(a.last('peer')!.peer.tracks)).toEqual(['mic']);
+  });
+
   it('honors media passes only for people still in the room', async () => {
     const a = await join(adminHello());
     const g = await join(guestHello());

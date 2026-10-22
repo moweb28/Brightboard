@@ -1,8 +1,8 @@
-import { CaptureUpdateAction, convertToExcalidrawElements, Excalidraw, exportToBlob, MainMenu, newElementWith } from '@excalidraw/excalidraw';
+import { CaptureUpdateAction, convertToExcalidrawElements, Excalidraw, exportToBlob, newElementWith } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 import type { BinaryFileData, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import { geoShape, type BoardDesign, type GeoShape } from '@classroom/protocol';
-import { Loader2, Lock, LockOpen, Maximize2, Minimize2, Ruler, Scissors, X } from 'lucide-react';
+import { Eraser, Hand, ImagePlus, Loader2, Lock, LockOpen, Maximize2, Minimize2, MousePointer2, Pen, Ruler, Scissors, Type, Wand2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings, useT } from '../../lib/settings';
 import { applyDesign, inkFor, MoreMenu, PenBar, ShapesMenu, TextBar } from './BoardTools';
@@ -111,32 +111,61 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
     setTimeout(() => URL.revokeObjectURL(link.href), 5000);
   };
 
+  // Pictures (a snip or a file) land in the middle of the view, shrunk if they wouldn't fit in most of it.
+  const placeImage = (dataURL: string, mimeType: string, w: number, h: number) => {
+    const b = api.current;
+    if (!b) return;
+    const fileId = crypto.randomUUID() as BinaryFileData['id'];
+    b.addFiles([{ id: fileId, dataURL: dataURL as BinaryFileData['dataURL'], mimeType: mimeType as BinaryFileData['mimeType'], created: Date.now() }]);
+    const st = b.getAppState();
+    const viewW = st.width / st.zoom.value;
+    const viewH = st.height / st.zoom.value;
+    const scale = Math.min(1, (viewW * 0.8) / w, (viewH * 0.8) / h);
+    const width = w * scale;
+    const height = h * scale;
+    const [image] = convertToExcalidrawElements([{ type: 'image', fileId, status: 'saved', x: -st.scrollX + viewW / 2 - width / 2, y: -st.scrollY + viewH / 2 - height / 2, width, height }]);
+    b.setActiveTool({ type: 'selection' });
+    b.updateScene({ elements: [...b.getSceneElementsIncludingDeleted(), image], appState: { selectedElementIds: { [image.id]: true } } as never, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+  };
+
   // Snipping tool: grab part of the screen (another app, a website, a PDF) and drop it on the board.
   const [snipping, setSnipping] = useState(false);
   const snip = async () => {
-    const a = api.current;
     const bridge = window.brightboard;
-    if (!a || !bridge || snipping) return;
+    if (!api.current || !bridge || snipping) return;
     setSnipping(true);
     try {
       const shot = await bridge.snip(t.board.snipHint, settings.lang === 'ar');
-      if (!shot || !api.current) return;
-      const b = api.current;
-      const fileId = crypto.randomUUID() as BinaryFileData['id'];
-      b.addFiles([{ id: fileId, dataURL: shot.dataURL as BinaryFileData['dataURL'], mimeType: shot.mimeType, created: Date.now() }]);
-      // Centered in view, shrunk if it wouldn't fit in most of the visible board.
-      const st = b.getAppState();
-      const viewW = st.width / st.zoom.value;
-      const viewH = st.height / st.zoom.value;
-      const scale = Math.min(1, (viewW * 0.8) / shot.width, (viewH * 0.8) / shot.height);
-      const width = shot.width * scale;
-      const height = shot.height * scale;
-      const [image] = convertToExcalidrawElements([{ type: 'image', fileId, status: 'saved', x: -st.scrollX + viewW / 2 - width / 2, y: -st.scrollY + viewH / 2 - height / 2, width, height }]);
-      b.updateScene({ elements: [...b.getSceneElementsIncludingDeleted(), image], appState: { selectedElementIds: { [image.id]: true } } as never });
+      if (shot) placeImage(shot.dataURL, shot.mimeType, shot.width, shot.height);
     } finally {
       setSnipping(false);
     }
   };
+
+  // A picture from a file on this computer.
+  const pictureInput = useRef<HTMLInputElement>(null);
+  const addPicture = async (file: File | undefined) => {
+    if (!file || !/^image\/(png|jpeg|gif|webp|svg\+xml)$/.test(file.type) || file.size > 8_000_000) return;
+    const dataURL = await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result as string);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+    const img = new Image();
+    img.src = dataURL;
+    await img.decode().catch(() => undefined);
+    placeImage(dataURL, file.type, img.naturalWidth || 400, img.naturalHeight || 300);
+  };
+
+  // Admin only: wipes the board for everyone (as deletions, so it syncs and can be undone).
+  const clearBoard = () => {
+    const a = api.current;
+    if (!a || !window.confirm(t.board.clearConfirm)) return;
+    a.updateScene({ elements: a.getSceneElementsIncludingDeleted().map((el) => (el.isDeleted ? el : newElementWith(el, { isDeleted: true }))), captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+  };
+
+  const pickTool = (type: string) => api.current?.setActiveTool({ type } as never);
 
   // Ready-made shapes land in the middle of the view, one unit = one grid square, clean and selected.
   const insertShape = (kind: GeoShape) => {
@@ -172,49 +201,78 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
     else removeIdea(a, node);
   };
 
-  // Our buttons. Excalidraw hides its top bar for view-only boards, so they're placed over the board then.
-  const actions = (
-    <div className="board-actions">
-      {reading && (
-        <span className="board-pill">
-          <Loader2 size={14} className="spin" /> {t.board.reading}
-        </span>
+  // One Brightboard bar replaces Excalidraw's toolbar (hidden in CSS); only full screen and "More" sit apart on the side.
+  const toolBtn = (type: string, Icon: typeof Pen, label: string) => (
+    <button className={`bar-btn ${tool === type ? 'is-active' : ''}`} onClick={() => pickTool(type)} title={label} aria-label={label} aria-pressed={tool === type}>
+      <Icon size={18} />
+    </button>
+  );
+  const measureBtn = (
+    <button className={`bar-btn ${measureOpen ? 'is-active' : ''}`} onClick={() => setMeasureOpen((o) => !o)} title={t.board.measure.buttonTitle} aria-label={t.board.measure.title} aria-pressed={measureOpen}>
+      <Ruler size={18} />
+    </button>
+  );
+  const top = (
+    <div className="board-top">
+      {!viewOnly && (
+        <div className="board-bar" role="toolbar" aria-label={t.board.toolbar}>
+          {toolBtn('selection', MousePointer2, t.board.tools.selection)}
+          {toolBtn('hand', Hand, t.board.tools.hand)}
+          <span className="bar-sep" aria-hidden />
+          {toolBtn('freedraw', Pen, t.board.tools.freedraw)}
+          {toolBtn('text', Type, t.board.tools.text)}
+          {toolBtn('eraser', Eraser, t.board.tools.eraser)}
+          <ShapesMenu t={t} tool={tool} onTool={pickTool} onPick={insertShape} />
+          {toolBtn('laser', Wand2, t.board.tools.laser)}
+          <span className="bar-sep" aria-hidden />
+          <button className="bar-btn" onClick={() => pictureInput.current?.click()} title={t.board.tools.image} aria-label={t.board.tools.image}>
+            <ImagePlus size={18} />
+          </button>
+          {window.brightboard && (
+            <button className={`bar-btn ${snipping ? 'is-active' : ''}`} onClick={() => void snip()} title={t.board.snipTitle} aria-label={t.board.snip}>
+              <Scissors size={18} />
+            </button>
+          )}
+          {measureBtn}
+          {amHost && (
+            <>
+              <span className="bar-sep" aria-hidden />
+              <button className={`bar-btn ${locked ? 'is-active' : ''}`} onClick={onToggleLock} title={locked ? t.board.unlock : t.board.lock} aria-label={locked ? t.board.unlock : t.board.lock}>
+                {locked ? <Lock size={18} /> : <LockOpen size={18} />}
+              </button>
+              <button className="bar-btn" onClick={onClose} title={t.board.close} aria-label={t.board.close}>
+                <X size={18} />
+              </button>
+            </>
+          )}
+          <input ref={pictureInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" hidden onChange={(e) => void addPicture(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
+        </div>
       )}
-      {!viewOnly && window.brightboard && (
-        <button className={`board-btn ${snipping ? 'is-active' : ''}`} onClick={() => void snip()} title={t.board.snipTitle}>
-          <Scissors size={16} /> <span className="board-btn-label">{t.board.snip}</span>
+      <div className="board-side">
+        {reading && (
+          <span className="board-pill">
+            <Loader2 size={14} className="spin" /> {t.board.reading}
+          </span>
+        )}
+        {viewOnly && measureBtn}
+        <button className={`bar-btn ${fullscreen ? 'is-active' : ''}`} onClick={toggleFullscreen} title={fullscreen ? t.board.exitFullscreen : t.board.fullscreen} aria-label={fullscreen ? t.board.exitFullscreen : t.board.fullscreen}>
+          {fullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
         </button>
-      )}
-      {!viewOnly && <ShapesMenu t={t} onPick={insertShape} />}
-      <button className={`board-btn ${measureOpen ? 'is-active' : ''}`} onClick={() => setMeasureOpen((o) => !o)} title={t.board.measure.buttonTitle} aria-label={t.board.measure.title} aria-pressed={measureOpen}>
-        <Ruler size={16} />
-      </button>
-      <button className={`board-btn ${fullscreen ? 'is-active' : ''}`} onClick={toggleFullscreen} title={fullscreen ? t.board.exitFullscreen : t.board.fullscreen} aria-label={fullscreen ? t.board.exitFullscreen : t.board.fullscreen}>
-        {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-      </button>
-      <MoreMenu
-        t={t}
-        amHost={amHost}
-        canDraw={!viewOnly}
-        design={design}
-        onDesign={pickDesign}
-        onMindMap={() => api.current && insertMindMap(api.current, t.board.rootText)}
-        onExport={() => void exportPng()}
-        grid={gridOn}
-        onToggleGrid={() => setGrid(!gridOn)}
-        labels={settings.measureLabels}
-        onToggleLabels={() => set('measureLabels', !settings.measureLabels)}
-      />
-      {amHost && (
-        <button className={`board-btn ${locked ? 'is-active' : ''}`} onClick={onToggleLock} title={locked ? t.board.unlock : t.board.lock}>
-          {locked ? <Lock size={16} /> : <LockOpen size={16} />}
-        </button>
-      )}
-      {amHost && (
-        <button className="board-btn" onClick={onClose} title={t.board.close}>
-          <X size={16} />
-        </button>
-      )}
+        <MoreMenu
+          t={t}
+          amHost={amHost}
+          canDraw={!viewOnly}
+          design={design}
+          onDesign={pickDesign}
+          onMindMap={() => api.current && insertMindMap(api.current, t.board.rootText)}
+          onExport={() => void exportPng()}
+          onClear={amHost ? clearBoard : undefined}
+          grid={gridOn}
+          onToggleGrid={() => setGrid(!gridOn)}
+          labels={settings.measureLabels}
+          onToggleLabels={() => set('measureLabels', !settings.measureLabels)}
+        />
+      </div>
     </div>
   );
 
@@ -253,17 +311,7 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
             });
           }
         }}
-        renderTopRightUI={viewOnly ? undefined : () => actions}
-      >
-        {/* Excalidraw's own menu, minus its social links. Wiping the whole board is the admin's call. */}
-        <MainMenu>
-          <MainMenu.DefaultItems.SearchMenu />
-          <MainMenu.DefaultItems.Help />
-          {amHost && <MainMenu.DefaultItems.ClearCanvas />}
-          <MainMenu.Separator />
-          <MainMenu.DefaultItems.ChangeCanvasBackground />
-        </MainMenu>
-      </Excalidraw>
+      />
       {!viewOnly && tool === 'freedraw' && api.current && (
         <PenBar
           t={t}
@@ -295,7 +343,7 @@ export function Board({ sync, title, amHost, locked, onClose, onToggleLock }: Pr
           onClose={() => setMeasureOpen(false)}
         />
       )}
-      {viewOnly && <div className="board-view-actions">{actions}</div>}
+      {top}
       {viewOnly && <div className="board-note">{t.board.lockedNote}</div>}
     </div>
   );

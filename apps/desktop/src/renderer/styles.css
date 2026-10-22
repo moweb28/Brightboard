@@ -500,7 +500,7 @@ button { font: inherit; color: inherit; }
 .tile-menu .icon-btn { background: rgba(0, 0, 0, 0.6); color: #fff; border-radius: 6px; }
 
 /* Floating dock */
-.dock-wrap { position: absolute; inset-inline: 0; bottom: 18px; display: flex; justify-content: center; pointer-events: none; z-index: 10; }
+.dock-wrap { position: absolute; inset-inline: 0; bottom: 18px; display: flex; justify-content: center; pointer-events: none; z-index: 40; }
 .dock { pointer-events: auto; display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 16px; background: var(--sidebar); box-shadow: var(--shadow-lg); }
 .dock-sep { width: 1px; height: 28px; background: var(--border); margin: 0 4px; }
 .dock-btn { position: relative; display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--ink); cursor: pointer; transition: background 0.15s, transform 0.12s, color 0.15s; }
@@ -665,41 +665,30 @@ button { font: inherit; color: inherit; }
 
 /* ================= Whiteboard ================= */
 .board { position: relative; width: 100%; height: 100%; min-height: 0; border-radius: 12px; overflow: hidden; background: #fff; container-type: inline-size; }
-/* A narrow board (chat or people open, small window) keeps every tool visible: our buttons drop their labels. */
-@container (max-width: 1320px) {
-  .board .board-btn-label, .board .excalidraw .sidebar-trigger__label { display: none; }
-  .board .board-btn { padding: 0 8px; }
-  .board .board-actions { gap: 4px; }
-}
-@container (max-width: 900px) {
-  .board .board-actions { gap: 3px; }
-  .board .board-btn { height: 30px; padding: 0 6px; }
-  .board .excalidraw .App-toolbar { gap: 0; }
-  .board .excalidraw .App-toolbar .ToolIcon__icon { width: 1.8rem; height: 1.8rem; }
-}
-/* Too narrow for one row (e.g. people panel open): our buttons stack down the right instead of running off the edges. */
-@container (max-width: 1000px) {
-  .board .board-actions { flex-direction: column; align-items: flex-end; }
-  .board .board-btn { width: 34px; justify-content: center; padding: 0; }
-  .board .board-btn svg { flex-shrink: 0; }
-  /* Their menus open to the left of the column, from its top, so they stay on the board. */
-  .board .board-actions { position: relative; }
-  .board .board-actions .menu-anchor { position: static; }
-  .board .board-actions .board-pop { top: 0; inset-inline-end: calc(100% + 8px); }
-  /* The pen/text bar and the measure panel move left, clear of the column; the panel starts below the bar. */
-  .board .board-ctx { inset-inline-start: 12px; inset-inline-end: auto; margin-inline: 0; max-width: calc(100% - 200px); justify-content: flex-start; }
-  .board .measure { inset-inline-end: auto; inset-inline-start: 12px; }
-  .board:has(.board-ctx) .measure { top: 184px; }
-  .board .excalidraw .App-menu_top { align-items: start; }
-  .board .excalidraw .App-menu_top .Stack, .board .excalidraw .App-toolbar { align-self: start; height: auto; }
-}
+/* Excalidraw's own toolbar and library button make way for the Brightboard bar. */
+.board .excalidraw .App-toolbar, .board .excalidraw .App-toolbar-container, .board .excalidraw .default-sidebar-trigger, .board .excalidraw .main-menu-trigger { display: none !important; }
+.board-pop .pop-row.is-danger { color: var(--danger); }
+/* The bar sits centered at the top; the side group (full screen, More) at the end. */
+.board-top { position: absolute; z-index: 5; top: 12px; inset-inline: 12px; display: flex; align-items: flex-start; gap: 8px; pointer-events: none; }
+.board-top::before { content: ''; flex: 0 1 84px; }
+.board-bar { pointer-events: auto; margin-inline: auto; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 2px; padding: 4px; background: var(--rail); color: var(--ink); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); }
+.board-side { pointer-events: auto; flex: none; display: flex; align-items: center; gap: 6px; }
+.board-top:not(:has(.board-bar)) .board-side { margin-inline-start: auto; }
+.board-side > .bar-btn, .board-side > .menu-anchor > .bar-btn { background: var(--rail); border: 1px solid var(--border); box-shadow: var(--shadow-lg); }
+.bar-btn { display: inline-grid; place-items: center; grid-auto-flow: column; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; }
+.bar-btn:hover { background: var(--surface-2); }
+.bar-btn.is-active { background: var(--primary-soft); color: var(--primary); }
+.board-side > .bar-btn.is-active, .board-side > .menu-anchor > .bar-btn.is-active { background: var(--primary); color: var(--on-primary); }
+.bar-btn-menu { width: 46px; gap: 1px; }
+.bar-chevron { opacity: 0.7; }
+.bar-sep { width: 1px; height: 22px; margin: 0 4px; background: var(--border); }
+.board-bar .board-pop { left: 50%; right: auto; translate: -50% 0; }
+.draw-row { display: flex; gap: 6px; margin-bottom: 4px; }
+.draw-tool { flex: 1; height: 40px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.draw-tool:hover { border-color: var(--primary); }
+.draw-tool.is-on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
 [data-theme='dark'] .board { background: #121212; }
 .board .excalidraw { --color-primary: var(--primary); --color-primary-darker: var(--primary-hover); --color-primary-darkest: var(--primary-hover); --color-primary-light: var(--primary-soft); font-family: 'Rubik Variable', 'Segoe UI', sans-serif; }
-.board-actions { display: flex; align-items: center; gap: 6px; }
-.board-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 8px; border: 0; background: var(--sidebar); color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.board-btn:hover { background: var(--surface-2); }
-.board-btn.is-active { background: var(--primary); border-color: transparent; color: var(--on-primary); }
-.board-view-actions { position: absolute; z-index: 5; top: 16px; inset-inline-end: 16px; }
 .board-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-size: 12.5px; font-weight: 600; }
 .board-note { position: absolute; z-index: 10; bottom: 14px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 500; pointer-events: none; }
 .board .menu { min-width: 300px; }
@@ -900,3 +889,31 @@ button { font: inherit; color: inherit; }
 .calc-formula { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
 .calc-result { margin: 2px 0 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .calc-result strong { color: var(--primary); font-size: 14px; }
+
+/* ================= Dock pop-ups (chat, people, mic and camera choices) ================= */
+.dock-anchor { position: relative; display: inline-flex; }
+.dock-caret { position: absolute; bottom: -3px; inset-inline-end: -5px; z-index: 1; width: 21px; height: 21px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--sidebar); background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); cursor: pointer; }
+.dock-caret:hover, .dock-caret.is-open { background: var(--primary); color: var(--on-primary); }
+.dock-pop { position: absolute; bottom: calc(100% + 18px); left: 50%; translate: -50% 0; z-index: 30; animation: pop 0.16s ease-out; }
+.dock-pop .side-panel { width: 380px; height: min(480px, calc(100vh - 260px)); border: 1px solid var(--border); box-shadow: var(--shadow-lg); animation: none; }
+.dock-menu { width: 300px; max-height: min(540px, calc(100vh - 200px)); overflow-y: auto; padding: 6px; background: var(--rail); color: var(--ink); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); font-size: 13.5px; }
+.dock-pop-wide .dock-menu { width: 400px; }
+.dock-menu .pop-section + .pop-section { margin-top: 6px; padding-top: 4px; border-top: 1px solid var(--border); }
+.dock-menu .pop-title { margin: 8px 10px 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.dock-menu .pop-row { font: inherit; color: inherit; cursor: pointer; padding: 7px 10px; font-weight: 500; }
+.dock-menu .pop-row.is-active { color: var(--primary); font-weight: 600; }
+.dock-menu .pop-tick { width: 16px; flex: none; display: grid; place-items: center; }
+.dock-menu .pop-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dock-menu .pop-more { margin-top: 6px; border-top: 1px solid var(--border); border-radius: 0 0 8px 8px; }
+.dock-menu .bg-grid { padding: 2px 8px 8px; }
+
+/* Camera backgrounds */
+.bg-cell { position: relative; display: grid; }
+.bg-grid-compact { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.bg-grid-compact .bg-option { padding: 3px; border-radius: 10px; }
+.bg-grid-compact .bg-thumb { border-radius: 7px; }
+.bg-add .bg-thumb { display: grid; place-items: center; color: var(--muted); border: 1px dashed var(--border); background: var(--surface); }
+.bg-thumb-blur-light { background: radial-gradient(circle at 50% 40%, #dfe3fb, #aab1dc); }
+.bg-remove { position: absolute; top: -5px; inset-inline-end: -5px; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 0; background: var(--ink); color: var(--bg); cursor: pointer; opacity: 0; transition: opacity 0.12s; }
+.bg-cell:hover .bg-remove, .bg-remove:focus-visible { opacity: 1; }
+.dock-anchor:has(.dock-pop) .dock-btn::after { display: none; }
