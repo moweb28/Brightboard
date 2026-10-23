@@ -319,7 +319,7 @@ button { font: inherit; color: inherit; }
 .app-shell { display: grid; grid-template-columns: auto 1fr; height: 100%; background: var(--bg); }
 
 /* ================= Sidebar (folds to icons) ================= */
-.sb { width: 72px; display: flex; flex-direction: column; min-height: 0; padding: 10px 12px; gap: 8px; background: var(--rail); transition: width 0.18s ease-out; overflow: hidden; }
+.sb { width: 72px; display: flex; flex-direction: column; min-height: 0; padding: 10px 12px; gap: 8px; background: var(--rail); overflow: hidden; }
 .sb.is-open { width: 248px; }
 .sb-head { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; flex: none; }
 .sb.is-open .sb-head { flex-direction: row; align-items: center; justify-content: space-between; }
