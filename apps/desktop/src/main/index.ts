@@ -5,6 +5,7 @@ import icon from '../../build/icon.png?asset';
 import { registerFileHandlers } from './files';
 import { registerRemoteControl, setSharedSource } from './remote';
 import { registerSnip } from './snip';
+import { handleSquirrelEvent, launcherPath } from './squirrel';
 import { registerStore } from './store';
 
 const PROTOCOL = 'brightboard';
@@ -24,9 +25,12 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 
+// The installer briefly runs the app to add or remove shortcuts; nothing else happens on those runs.
+const installerRun = handleSquirrelEvent(() => app.removeAsDefaultProtocolClient(PROTOCOL, launcherPath));
+
 // Register brightboard:// links. In dev, Electron runs as `electron <app dir>`, so pass the app path too.
 if (process.defaultApp && process.argv[1]) app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [resolve(process.argv[1])]);
-else app.setAsDefaultProtocolClient(PROTOCOL);
+else if (!installerRun) app.setAsDefaultProtocolClient(PROTOCOL, launcherPath);
 
 function handleLink(argv: string[]) {
   const url = argv.find((a) => a.startsWith(`${PROTOCOL}://`));
@@ -40,7 +44,9 @@ function handleLink(argv: string[]) {
   }
 }
 
-if (!app.requestSingleInstanceLock()) {
+if (installerRun) {
+  // handleSquirrelEvent quits once the shortcuts are done.
+} else if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', (_e, argv) => handleLink(argv)); // Windows/Linux: link opened while running

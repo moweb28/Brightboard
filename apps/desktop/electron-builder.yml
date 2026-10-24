@@ -1,7 +1,11 @@
-# Windows installer: `npm run dist` → dist/Brightboard-Setup-<version>.exe
+# Windows installer: `npm run dist` → dist/squirrel-windows/Brightboard-Setup-<version>.exe
+# One click, like Claude's or Slack's: a branded animation (build/installer.gif) plays while it installs
+# for the current user (no admin, no questions), adds Desktop + Start menu shortcuts, then opens the app.
 appId: app.brightboard.desktop
 productName: Brightboard
 electronVersion: 38.8.6
+# The app speaks English and Arabic; other Chromium language packs only add size.
+electronLanguages: [en-US, ar]
 copyright: Copyright © 2026 Brightboard
 directories:
   output: dist
@@ -18,9 +22,16 @@ protocols:
   - name: Brightboard invite link
     schemes: [brightboard]
 win:
-  target: [{ target: nsis, arch: [x64] }]
+  target: [{ target: squirrel, arch: [x64] }]
   icon: build/icon.ico
   artifactName: Brightboard-Setup-${version}.${ext}
+squirrelWindows:
+  name: Brightboard
+  loadingGif: build/installer.gif
+  # Shown in Windows' "Installed apps" list; Squirrel needs a web address for it.
+  iconUrl: https://raw.githubusercontent.com/moweb28/brightboard/main/apps/desktop/build/icon.ico
+  artifactName: Brightboard-Setup-${version}.${ext}
+# The classic wizard (choose a folder): `npx electron-builder --win nsis`.
 nsis:
   oneClick: false
   perMachine: false

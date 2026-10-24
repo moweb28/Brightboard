@@ -7,6 +7,7 @@ Free, simple video spaces for everyone (friends, family, teams, classes and even
 ## Download
 
 Get the latest **Brightboard-Setup.exe** from the [Releases page](../../releases/latest) (Windows 10/11).
+It installs in one click (no admin needed), adds Desktop and Start menu shortcuts and opens Brightboard. Remove it any time from Windows Settings → Apps.
 The installer isn't code-signed (certificates cost money), so Windows may say *"Windows protected your PC"*: click **More info → Run anyway**.
 
 ## Use it
@@ -75,9 +76,10 @@ npm run dev:desktop   # opens the app
 ## Build the Windows installer
 
 ```bash
-npm run build:win     # → apps/desktop/dist/Brightboard-Setup-<version>.exe
+npm run build:win     # → apps/desktop/dist/squirrel-windows/Brightboard-Setup-<version>.exe
 ```
 
+The installer's animation is `apps/desktop/build/installer.gif`; redraw it with `npx electron build/make-installer-gif.cjs` (needs ffmpeg) from `apps/desktop`.
 It uses `VITE_RELAY_URL` from `apps/desktop/.env.production`. Deploying the call service: [apps/relay/DEPLOY.md](apps/relay/DEPLOY.md).
 
 ## Tests
