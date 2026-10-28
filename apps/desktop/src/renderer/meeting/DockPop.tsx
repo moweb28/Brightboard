@@ -1,4 +1,4 @@
-import { Check, Settings as SettingsIcon } from 'lucide-react';
+import { Check, Settings as SettingsIcon, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BackgroundPicker } from '../components/BackgroundPicker';
 import { Room, type Room as RoomType } from '../lib/rtc';
@@ -97,6 +97,39 @@ export function CamMenu({ room, onSettings }: { room: RoomType; onSettings: () =
         </span>
         {t.meeting.audioVideoSettings}
       </button>
+    </div>
+  );
+}
+
+type MoreItem = { icon: LucideIcon; label: string; active?: boolean; onClick: () => void };
+
+/** Phones: everything that doesn't fit in the dock (reactions first, they're used most). */
+export function DockMore({ reactions, onReact, items, onDone }: { reactions: string[]; onReact: (emoji: string) => void; items: (MoreItem | false)[]; onDone: () => void }) {
+  const t = useT();
+  return (
+    <div className="dock-menu" role="menu">
+      <div className="pop-section">
+        <div className="pop-title">{t.meeting.react}</div>
+        <div className="emoji-row">
+          {reactions.map((e) => (
+            <button key={e} className="emoji-btn" onClick={() => onReact(e)} aria-label={e}>
+              {e}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="pop-section">
+        {items
+          .filter((i): i is MoreItem => !!i)
+          .map(({ icon: Icon, label, active, onClick }) => (
+            <button key={label} className={`pop-row ${active ? 'is-active' : ''}`} role="menuitem" onClick={() => (onDone(), onClick())}>
+              <span className="pop-tick">
+                <Icon size={17} />
+              </span>
+              <span className="pop-label">{label}</span>
+            </button>
+          ))}
+      </div>
     </div>
   );
 }

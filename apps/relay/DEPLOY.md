@@ -1,6 +1,6 @@
 # Deploying the relay
 
-The relay is one Cloudflare Worker (`brightboard`) with a Durable Object per room, plus Cloudflare Realtime for video and sound. Everything stays on free plans: no card is needed for Workers Free, and Realtime has a free monthly allowance (check the current amount on the Realtime pricing page before going big).
+The relay is one Cloudflare Worker (`brightboard`) with a Durable Object per room, plus Cloudflare Realtime for video and sound. The same Worker also serves the browser version of Brightboard, so people can join from a phone, tablet or any computer at `https://brightboard.<subdomain>.workers.dev`. Everything stays on free plans: no card is needed for Workers Free, and Realtime has a free monthly allowance (check the current amount on the Realtime pricing page before going big).
 
 Run every command from `apps/relay`.
 
@@ -33,9 +33,9 @@ Use a different value from the one in your local `.dev.vars`. To test real video
 
 ## 5. Deploy
 ```
-npx wrangler deploy
+npm run deploy
 ```
-It prints the URL. Check it: `https://brightboard.<subdomain>.workers.dev/health` should show `{"ok":true}`.
+This builds the website first (`npm run build:web -w @classroom/desktop`), then deploys it together with the relay. It prints the URL; open it on your phone to try the browser version. Check it: `https://brightboard.<subdomain>.workers.dev/health` should show `{"ok":true}`.
 
 ## 6. Point the app at it
 In `apps/desktop/.env.production`, replace the placeholder:

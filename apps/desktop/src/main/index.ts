@@ -104,8 +104,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    minWidth: 900,
-    minHeight: 600,
+    minWidth: 480,
+    minHeight: 540,
     title: 'Brightboard',
     icon,
     backgroundColor: '#1f2024',

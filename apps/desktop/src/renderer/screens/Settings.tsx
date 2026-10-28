@@ -22,7 +22,8 @@ export function SettingsPage() {
     { id: 'appearance', icon: Palette, label: t.settings.appearance },
     { id: 'language', icon: Languages, label: t.settings.language },
     { id: 'audioVideo', icon: Video, label: t.settings.audioVideo },
-    { id: 'sessions', icon: CircleDot, label: t.recording.section },
+    // Recording and transcripts are made by the desktop app only.
+    ...(window.brightboard ? [{ id: 'sessions' as Section, icon: CircleDot, label: t.recording.section }] : []),
     { id: 'notifications', icon: Bell, label: t.settings.notifications },
     { id: 'data', icon: HardDrive, label: t.settings.yourData },
   ];
@@ -81,7 +82,7 @@ function DataSection() {
   };
   return (
     <div className="stack">
-      <p className="muted">{t.settings.dataNote}</p>
+      <p className="muted">{bridge ? t.settings.dataNote : t.settings.dataNoteWeb}</p>
       {bridge && (
         <>
           <div className="row-wrap">

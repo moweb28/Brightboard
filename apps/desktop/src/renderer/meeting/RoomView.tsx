@@ -14,6 +14,9 @@ import {
   Presentation,
   ChevronUp,
   CircleDot,
+  LayoutGrid,
+  MoreHorizontal,
+  SquareUserRound,
   MousePointer2,
   PhoneOff,
   Send,
@@ -36,7 +39,8 @@ import { formatDuration } from '../lib/format';
 import { useSettings, useT } from '../lib/settings';
 import { sounds } from '../lib/sounds';
 import { ChatPanel } from './ChatPanel';
-import { CamMenu, DockPop, MicMenu } from './DockPop';
+import { CamMenu, DockMore, DockPop, MicMenu } from './DockPop';
+import { useMedia } from '../lib/useMedia';
 import { MeetingSettings } from './MeetingSettings';
 import { useModerate } from './moderation';
 import { allParticipants, canShareScreen, handUp, isWaiting, nameOf, roomMetaOf, useRoomVersion } from './participants';
@@ -76,7 +80,7 @@ export function RoomView({ join, choices, password }: Props) {
 
   const [panel, setPanel] = useState<'transcript' | null>(null);
   // Pop-ups that rise from their dock button: chat, people, and the mic/camera choices.
-  const [pop, setPop] = useState<'chat' | 'people' | 'mic' | 'cam' | null>(null);
+  const [pop, setPop] = useState<'chat' | 'people' | 'mic' | 'cam' | 'more' | null>(null);
   const togglePop = (p: NonNullable<typeof pop>) => setPop((cur) => (cur === p ? null : p));
   const closePop = useCallback(() => setPop(null), []);
   const [layout, setLayout] = useState<Layout>('grid');
@@ -226,6 +230,11 @@ export function RoomView({ join, choices, password }: Props) {
     room.disconnect();
   };
 
+  // Phones (and folded foldables) get a shorter dock; the rest of the buttons live in "More".
+  const narrow = useMedia('(max-width: 640px)');
+  // Phone and tablet browsers can't share a screen at all.
+  const shareSupported = !!window.brightboard || typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+  const showShare = canShareScreen(local) && shareSupported;
   const guestsWaiting = amHost ? allParticipants(room).filter(isWaiting).length : 0;
   const people = allParticipants(room).filter((p) => !isWaiting(p)).length;
   const chatAllowed = amHost || meta.chatEnabled;
@@ -306,7 +315,7 @@ export function RoomView({ join, choices, password }: Props) {
 
       <div className="room-body">
         <div className="room-stage">
-          <Stage room={room} meta={meta} layout={layout} strip={settings.videoStrip} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate}
+          <Stage room={room} meta={meta} layout={layout} strip={narrow && settings.videoStrip === 'side' ? 'bottom' : settings.videoStrip} amHost={amHost} pinned={pinned} setPinned={setPinned} moderate={moderate}
             remote={remote}
             board={
               meta.boardOpen ? (
@@ -346,17 +355,19 @@ export function RoomView({ join, choices, password }: Props) {
               </DockPop>
             )}
           </span>
-          {canShareScreen(local) && <Ctrl icon={local.isScreenShareEnabled ? MonitorX : MonitorUp} label={local.isScreenShareEnabled ? t.meeting.stopShare : t.meeting.share} active={local.isScreenShareEnabled} onClick={toggleShare} />}
-          <span className="dock-sep" aria-hidden />
+          {showShare && !narrow && <Ctrl icon={local.isScreenShareEnabled ? MonitorX : MonitorUp} label={local.isScreenShareEnabled ? t.meeting.stopShare : t.meeting.share} active={local.isScreenShareEnabled} onClick={toggleShare} />}
+          {!narrow && <span className="dock-sep" aria-hidden />}
           {!amHost && <Ctrl icon={Hand} label={handUp(local) ? t.meeting.lowerHand : t.meeting.raiseHand} active={handUp(local)} onClick={toggleHand} />}
-          <Menu
-            up
-            align="start"
-            trigger={(open, isOpen) => <Ctrl icon={SmilePlus} label={t.meeting.react} active={isOpen} onClick={open} />}
-            items={QUICK_REACTIONS.map((e) => ({ label: e, onClick: () => reactions.send(e) }))}
-          />
-          {amHost && <Ctrl icon={Presentation} label={meta.boardOpen ? t.board.close : t.board.open} active={meta.boardOpen} onClick={() => moderate({ action: 'board', value: !meta.boardOpen })} />}
-          {!amHost && meta.guestsCanBoard && <Ctrl icon={Presentation} label={meta.boardOpen ? t.board.isOpen : t.board.open} active={meta.boardOpen} onClick={() => !meta.boardOpen && moderate({ action: 'board', value: true })} />}
+          {!narrow && (
+            <Menu
+              up
+              align="start"
+              trigger={(open, isOpen) => <Ctrl icon={SmilePlus} label={t.meeting.react} active={isOpen} onClick={open} />}
+              items={QUICK_REACTIONS.map((e) => ({ label: e, onClick: () => reactions.send(e) }))}
+            />
+          )}
+          {!narrow && amHost && <Ctrl icon={Presentation} label={meta.boardOpen ? t.board.close : t.board.open} active={meta.boardOpen} onClick={() => moderate({ action: 'board', value: !meta.boardOpen })} />}
+          {!narrow && !amHost && meta.guestsCanBoard && <Ctrl icon={Presentation} label={meta.boardOpen ? t.board.isOpen : t.board.open} active={meta.boardOpen} onClick={() => !meta.boardOpen && moderate({ action: 'board', value: true })} />}
           <span className="dock-anchor">
             <Ctrl icon={MessageSquare} label={t.meeting.chat} active={pop === 'chat'} badge={chat.unread} onClick={() => togglePop('chat')} />
             {pop === 'chat' && (
@@ -373,15 +384,40 @@ export function RoomView({ join, choices, password }: Props) {
               </DockPop>
             )}
           </span>
-          <span className="dock-sep" aria-hidden />
-          <LayoutMenu layout={layout} setLayout={setLayout} />
-          {tx.available && (
-            <Ctrl icon={FileText} label={t.transcript.title} active={panel === 'transcript' || tx.running} onClick={() => setPanel(panel === 'transcript' ? null : 'transcript')} />
+          {narrow ? (
+            <span className="dock-anchor">
+              <Ctrl icon={MoreHorizontal} label={t.meeting.more} active={pop === 'more'} onClick={() => togglePop('more')} />
+              {pop === 'more' && (
+                <DockPop light onClose={closePop}>
+                  <DockMore
+                    reactions={QUICK_REACTIONS}
+                    onReact={(e) => (reactions.send(e), setPop(null))}
+                    items={[
+                      showShare && { icon: local.isScreenShareEnabled ? MonitorX : MonitorUp, label: local.isScreenShareEnabled ? t.meeting.stopShare : t.meeting.share, active: local.isScreenShareEnabled, onClick: toggleShare },
+                      amHost && { icon: Presentation, label: meta.boardOpen ? t.board.close : t.board.open, active: meta.boardOpen, onClick: () => moderate({ action: 'board', value: !meta.boardOpen }) },
+                      !amHost && meta.guestsCanBoard && !meta.boardOpen && { icon: Presentation, label: t.board.open, onClick: () => moderate({ action: 'board', value: true }) },
+                      { icon: layout === 'grid' ? SquareUserRound : LayoutGrid, label: layout === 'grid' ? t.meeting.speaker : t.meeting.grid, onClick: () => setLayout(layout === 'grid' ? 'speaker' : 'grid') },
+                      rec.available && { icon: CircleDot, label: rec.recording ? t.recording.stop : t.recording.record, active: rec.recording, onClick: () => (rec.recording ? rec.stop() : rec.start()) },
+                      { icon: SettingsIcon, label: t.meeting.settings, onClick: () => setDevicesOpen(true) },
+                    ]}
+                    onDone={closePop}
+                  />
+                </DockPop>
+              )}
+            </span>
+          ) : (
+            <>
+              <span className="dock-sep" aria-hidden />
+              <LayoutMenu layout={layout} setLayout={setLayout} />
+              {tx.available && (
+                <Ctrl icon={FileText} label={t.transcript.title} active={panel === 'transcript' || tx.running} onClick={() => setPanel(panel === 'transcript' ? null : 'transcript')} />
+              )}
+              {rec.available && (
+                <Ctrl icon={CircleDot} label={rec.recording ? t.recording.stop : t.recording.record} active={rec.recording} rec onClick={() => (rec.recording ? rec.stop() : rec.start())} />
+              )}
+              <Ctrl icon={SettingsIcon} label={t.meeting.settings} onClick={() => setDevicesOpen(true)} />
+            </>
           )}
-          {rec.available && (
-            <Ctrl icon={CircleDot} label={rec.recording ? t.recording.stop : t.recording.record} active={rec.recording} rec onClick={() => (rec.recording ? rec.stop() : rec.start())} />
-          )}
-          <Ctrl icon={SettingsIcon} label={t.meeting.settings} onClick={() => setDevicesOpen(true)} />
           {amHost ? (
             <Menu
               up

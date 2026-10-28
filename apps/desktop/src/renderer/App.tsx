@@ -1,3 +1,4 @@
+import { normalizeRoomCode } from '@classroom/protocol';
 import { useEffect, useState } from 'react';
 import { ToastProvider } from './components/toast';
 import { Spinner } from './components/ui';
@@ -32,9 +33,17 @@ function Router() {
 
   // brightboard://join/CODE links open the join screen with the code filled in (never interrupting a call).
   useEffect(() => {
-    const bridge = window.brightboard;
-    if (!bridge) return;
     const open = (code: string) => setRoute((r) => (r.name === 'meeting' ? r : { name: 'join', code }));
+    const bridge = window.brightboard;
+    if (!bridge) {
+      // The website: invite pages send people to /?join=CODE.
+      const code = normalizeRoomCode(new URLSearchParams(location.search).get('join') ?? '');
+      if (code) {
+        history.replaceState(null, '', location.pathname);
+        open(code);
+      }
+      return;
+    }
     bridge.takePendingJoin().then((code) => code && open(code));
     return bridge.onJoinLink(open);
   }, []);

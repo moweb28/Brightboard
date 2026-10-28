@@ -4,6 +4,10 @@ Free, simple video spaces for everyone (friends, family, teams, classes and even
 
 **Local-first:** your profile, spaces, pictures, history and recordings stay on your own computer. Only the live call travels over the internet, through a tiny Cloudflare service that stores nothing. No accounts, no emails.
 
+## Join from a phone or tablet
+
+No install needed: invite links open **Join in your browser** on phones, tablets and any computer (Chrome, Safari, Edge, Firefox). On a phone you can also choose *Add to Home screen* to keep Brightboard there like an app. The browser version has everything for joining a class (video, sound, chat, raising your hand, reactions and the whiteboard). Recording, transcripts, the snipping tool and remote control need the Windows app, and phones can't share their screen.
+
 ## Download
 
 Get the latest **Brightboard-Setup.exe** from the [Releases page](../../releases/latest) (Windows 10/11).
@@ -72,6 +76,14 @@ npm run dev:desktop   # opens the app
 ```
 
 `apps/relay/.dev.vars` holds `TICKET_SECRET`, `SFU_APP_ID` and `SFU_APP_TOKEN` (Cloudflare Realtime). Without real Realtime keys, everything except video and sound still works locally.
+
+## Work on the browser version
+
+```bash
+npm run dev:relay                         # the relay (also serves the built site)
+npm run dev:web -w @classroom/desktop     # the site with live reload at http://localhost:5174
+npm run build:web -w @classroom/desktop   # build it into apps/desktop/out/web (npm run deploy -w @classroom/relay does this)
+```
 
 ## Build the Windows installer
 

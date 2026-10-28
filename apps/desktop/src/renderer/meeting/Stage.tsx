@@ -5,6 +5,7 @@ import { Crown, EyeOff, Loader2, MicOff, MonitorUp, MoreHorizontal, MousePointer
 import { useEffect, useState } from 'react';
 import { Avatar, IconButton, Menu } from '../components/ui';
 import { useSettings, useT, type VideoStrip } from '../lib/settings';
+import { useMedia } from '../lib/useMedia';
 import { participantActions } from './moderation';
 import { RemoteSurface } from './RemoteSurface';
 import type { Remote } from './useRemote';
@@ -29,7 +30,9 @@ interface Props {
 
 const keyOf = (r: TrackReferenceOrPlaceholder) => `${r.participant.identity}:${r.source}`;
 
-function gridColumns(n: number) {
+/** Columns for n people; a tall screen (a phone held upright) stacks them instead. */
+function gridColumns(n: number, tall = false) {
+  if (tall) return n <= 2 ? 1 : n <= 6 ? 2 : n <= 12 ? 3 : 4;
   if (n <= 1) return 1;
   if (n <= 4) return 2;
   if (n <= 9) return 3;
@@ -38,6 +41,7 @@ function gridColumns(n: number) {
 }
 
 export function Stage({ room, meta, layout, strip, amHost, pinned, setPinned, moderate, remote, board }: Props) {
+  const tall = useMedia('(max-aspect-ratio: 3/4)');
   const refs = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -79,7 +83,7 @@ export function Stage({ room, meta, layout, strip, amHost, pinned, setPinned, mo
   if (focus) return focused(tile(focus, 'focus'), [...shares.filter((s) => s !== focus), ...cameras.filter((c) => c !== focus)]);
 
   return (
-    <div className="stage stage-grid" style={{ '--cols': gridColumns(cameras.length), '--rows': Math.ceil(cameras.length / gridColumns(cameras.length)) } as React.CSSProperties}>
+    <div className="stage stage-grid" style={{ '--cols': gridColumns(cameras.length, tall), '--rows': Math.ceil(cameras.length / gridColumns(cameras.length, tall)) } as React.CSSProperties}>
       {cameras.map((r) => tile(r, 'grid'))}
     </div>
   );

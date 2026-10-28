@@ -637,17 +637,12 @@ button { font: inherit; color: inherit; }
 @media (max-width: 1000px) {
   .auth-layout { grid-template-columns: 1fr; }
   .hero { display: none; }
-  .app-shell { grid-template-columns: 72px 64px 1fr; }
-  .sidebar-head, .nav-group, .user-card-text, .user-panel > .icon-btn { display: none; }
-  .nav-item { font-size: 0; justify-content: center; gap: 0; }
-  .user-panel { justify-content: center; }
-  .user-panel-who { flex: none; padding: 4px; }
   .settings-layout { grid-template-columns: 1fr; }
   .settings-nav { display: flex; flex-wrap: wrap; position: static; }
   .settings-nav .nav-item { font-size: 14px; width: auto; gap: 8px; }
   .device-check { grid-template-columns: 1fr; }
   .device-check > * { grid-column: auto; grid-row: auto; }
-  .side-panel { position: absolute; inset-inline-end: 18px; top: 8px; bottom: 104px; z-index: 5; width: 320px; box-shadow: var(--shadow-lg); }
+  .room-body > .side-panel { position: absolute; inset-inline-end: 18px; top: 8px; bottom: 104px; z-index: 5; width: 320px; box-shadow: var(--shadow-lg); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -932,3 +927,69 @@ button { font: inherit; color: inherit; }
 .bg-remove { position: absolute; top: -5px; inset-inline-end: -5px; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 0; background: var(--ink); color: var(--bg); cursor: pointer; opacity: 0; transition: opacity 0.12s; }
 .bg-cell:hover .bg-remove, .bg-remove:focus-visible { opacity: 1; }
 .dock-anchor:has(.dock-pop) .dock-btn::after { display: none; }
+
+/* ================= Phones (and folded foldables) ================= */
+@media (max-width: 640px) {
+  /* The side menu becomes a tab bar at the bottom: pages and you. Your spaces are on Home. */
+  .app-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .app-main { grid-row: 1; }
+  .sb, .sb.is-open { grid-row: 2; width: auto; flex-direction: row; align-items: stretch; gap: 0; padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
+  .sb-head, .sb .sb-group + .sb-group, .rail-tip { display: none; }
+  .sb-scroll { flex-direction: row; overflow: visible; gap: 0; }
+  .sb .sb-group { display: flex; flex: 1; gap: 0; }
+  .sb .sb-item { flex: 1; flex-direction: column; justify-content: center; gap: 0; min-height: 54px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .sb .sb-item .sb-icon { width: 100%; height: 30px; }
+  .sb .sb-item .sb-text { display: block; opacity: 1; max-width: 100%; }
+  .sb .sb-user { flex: 1; }
+  .sb .sb-user .sb-text strong { font-size: 11px; }
+  .sb .sb-user .sb-text .small { display: none; }
+  .sb-user .status-dot { bottom: 0; inset-inline-end: calc(50% - 18px); }
+  .page { padding: 18px 16px 28px; gap: 18px; }
+  .prejoin-body { width: calc(100% - 32px); gap: 16px; }
+  .prejoin-preview .device-selects { grid-template-columns: 1fr; gap: 10px; }
+  /* Call: a compact bar; pop-ups become full-width sheets above it. */
+  .room-top { padding: 8px 10px; gap: 6px; flex-wrap: wrap; }
+  .room-body { padding: 4px 8px calc(78px + env(safe-area-inset-bottom)); gap: 8px; }
+  .dock-wrap { bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .dock { gap: 4px; padding: 6px; border-radius: 14px; }
+  .dock-btn { width: 42px; height: 42px; }
+  .dock-btn::after { display: none; }
+  .dock-leave { width: 46px; height: 42px; padding: 0; justify-content: center; margin-inline-start: 2px; }
+  .dock-leave span { display: none; }
+  .dock-caret { width: 18px; height: 18px; }
+  .dock-pop { position: fixed; left: 8px; right: 8px; bottom: calc(72px + env(safe-area-inset-bottom)); translate: none; }
+  .dock-pop .side-panel, .dock-menu, .dock-pop-wide .dock-menu { width: 100%; }
+  .dock-pop .side-panel { height: min(70vh, calc(100dvh - 150px)); }
+  .dock-menu { max-height: calc(100dvh - 150px); }
+  .stage-grid .tile-avatar .avatar { width: 72px !important; height: 72px !important; font-size: 28px !important; }
+}
+.emoji-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0 6px 6px; }
+.emoji-btn { height: 44px; border: 0; border-radius: 10px; background: var(--surface-2); font-size: 22px; cursor: pointer; }
+.emoji-btn:active { transform: scale(0.94); }
+/* A narrow board (phone): the bar takes the free width next to full screen and More. */
+@container (max-width: 560px) {
+  .board-top { top: 8px; inset-inline: 8px; gap: 6px; }
+  .board-top::before { display: none; }
+  .board-bar { flex: 1; min-width: 0; margin-inline: 0; }
+  .board-side { flex-direction: column; }
+  .board-bar { position: relative; }
+  .board-bar .menu-anchor { position: static; }
+  .board-bar .board-pop { left: 0; right: 0; width: auto; translate: none; }
+  .shapes-pop .shape-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .shape-tile span { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .board .measure, .board-ctx { top: 108px; }
+}
+/* Short screens (a phone on its side): a slimmer header and bar leave room for the call. */
+@media (max-height: 520px) {
+  .room-top { padding: 4px 10px 0; }
+  .room-top .chip { height: 28px; font-size: 12.5px; }
+  .room-top .chip-code { display: none; }
+  .room-body { padding: 4px 10px calc(60px + env(safe-area-inset-bottom)); }
+  .dock-wrap { bottom: calc(6px + env(safe-area-inset-bottom)); }
+  .dock { padding: 4px; gap: 3px; }
+  .dock-btn { width: 40px; height: 40px; }
+  .dock-leave { height: 40px; }
+  .dock-pop { bottom: calc(100% + 10px); }
+  .dock-pop .side-panel { height: calc(100dvh - 90px); }
+  .dock-menu { max-height: calc(100dvh - 90px); }
+}

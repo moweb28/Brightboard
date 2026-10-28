@@ -10,7 +10,9 @@
     "dev": "node build/copy-board-assets.mjs && electron-vite dev",
     "build": "node build/copy-board-assets.mjs && tsc --noEmit -p tsconfig.json && electron-vite build",
     "start": "electron-vite preview",
-    "dist": "npm run build && electron-builder --win"
+    "dist": "npm run build && electron-builder --win",
+    "build:web": "node build/copy-board-assets.mjs && vite build -c vite.web.config.ts --mode web",
+    "dev:web": "node build/copy-board-assets.mjs && vite -c vite.web.config.ts --mode webdev --port 5174 --strictPort"
   },
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6"

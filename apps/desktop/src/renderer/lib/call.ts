@@ -5,8 +5,11 @@ import { JoinError, Room } from './rtc';
  * The only part of the app that talks to the internet: the Cloudflare connection service
  * (apps/relay). It carries the live call and stores nothing.
  */
-/** Set per build in .env.development (local relay) and .env.production (deployed relay). */
-export const RELAY_URL: string = (import.meta.env.VITE_RELAY_URL as string | undefined) ?? 'http://127.0.0.1:8787';
+/**
+ * Set per build in .env.development (local relay) and .env.production (deployed relay). The website
+ * (.env.web) leaves it empty: the relay serves the site, so it uses the address the page came from.
+ */
+export const RELAY_URL: string = (import.meta.env.VITE_RELAY_URL as string | undefined) || (window.brightboard ? 'http://127.0.0.1:8787' : location.origin);
 
 /** A call failure with a stable `code` the UI translates (see `errors` in i18n). */
 export class CallError extends Error {
