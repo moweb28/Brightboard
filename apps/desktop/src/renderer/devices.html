@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Brightboard on every screen</title>
+    <!-- Dev only (npm run dev:web → http://localhost:5174/devices.html): the browser version at phone,
+         foldable and tablet sizes side by side. Every frame is the real app, so you can click around in each. -->
+    <style>
+      :root { color-scheme: dark; --bg: #16161c; --panel: #23232d; --ink: #f2f3f5; --muted: #9a9cab; --accent: #4f46e5; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 'Segoe UI', system-ui, sans-serif; }
+      header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 20px; background: #16161cee; backdrop-filter: blur(8px); border-bottom: 1px solid #2e2e3a; }
+      h1 { font-size: 16px; margin: 0; }
+      .muted { color: var(--muted); }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-inline-start: auto; }
+      button { border: 1px solid #383848; background: var(--panel); color: var(--ink); border-radius: 8px; padding: 7px 12px; font: inherit; cursor: pointer; }
+      button:hover { border-color: var(--accent); }
+      button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); }
+      main { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-end; padding: 24px 20px 40px; }
+      figure { margin: 0; display: grid; gap: 8px; justify-items: center; }
+      figcaption { font-weight: 600; }
+      figcaption span { font-weight: 400; color: var(--muted); margin-inline-start: 6px; }
+      .device { position: relative; overflow: hidden; background: #000; border: 10px solid #0b0b10; border-radius: 26px; box-shadow: 0 20px 50px #0008; }
+      .device.tablet { border-radius: 22px; border-width: 14px; }
+      iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; background: #fff; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Brightboard on every screen</h1>
+      <span class="muted">Each frame is the live browser version. Click inside any of them.</span>
+      <div class="controls">
+        <button data-zoom="0.45">Small</button>
+        <button data-zoom="0.6" aria-pressed="true">Medium</button>
+        <button data-zoom="0.8">Large</button>
+        <button id="reload">Reload all</button>
+      </div>
+    </header>
+    <main id="devices"></main>
+    <script type="module">
+      const DEVICES = [
+        { name: 'Phone', note: '375 × 812', w: 375, h: 812 },
+        { name: 'Phone on its side', note: '812 × 375', w: 812, h: 375 },
+        { name: 'Foldable, folded', note: '344 × 882', w: 344, h: 882 },
+        { name: 'Foldable, open', note: '690 × 840', w: 690, h: 840, tablet: true },
+        { name: 'Tablet', note: '768 × 1024', w: 768, h: 1024, tablet: true },
+        { name: 'Tablet on its side', note: '1180 × 820', w: 1180, h: 820, tablet: true },
+      ];
+      const main = document.getElementById('devices');
+      let zoom = 0.6;
+      const draw = () => {
+        main.innerHTML = '';
+        for (const d of DEVICES) {
+          const fig = document.createElement('figure');
+          fig.innerHTML = `<div class="device ${d.tablet ? 'tablet' : ''}" style="width:${d.w * zoom + 20}px;height:${d.h * zoom + 20}px">
+              <iframe src="/" title="${d.name}" style="width:${d.w}px;height:${d.h}px;transform:scale(${zoom})" allow="fullscreen"></iframe>
+            </div>
+            <figcaption>${d.name}<span>${d.note}</span></figcaption>`;
+          main.append(fig);
+        }
+      };
+      document.querySelectorAll('[data-zoom]').forEach((b) =>
+        b.addEventListener('click', () => {
+          zoom = Number(b.dataset.zoom);
+          document.querySelectorAll('[data-zoom]').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+          draw();
+        }),
+      );
+      document.getElementById('reload').addEventListener('click', draw);
+      draw();
+    </script>
+  </body>
+</html>
