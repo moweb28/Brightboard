@@ -9,3 +9,8 @@ apps/desktop/src/renderer/public/excalidraw-assets/
 
 .dev.vars
 .wrangler/
+
+# Local tools and AI notes: kept on this PC, not in the repo
+.claude/
+docs/superpowers/
+.impeccable/
