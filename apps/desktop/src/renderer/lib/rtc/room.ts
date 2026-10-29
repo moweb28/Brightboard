@@ -589,7 +589,7 @@ export class Room {
     }
     if (this.outgoing.has('camera')) return;
     const raw = await this.capture('video');
-    const sent = this.videoEffect ? await this.videoEffect(raw).catch(() => raw) : raw;
+    const sent = await this.withEffect(raw, this.videoEffect);
     this.startOutgoing('camera', raw, sent);
     this.sendState({ cameraOn: true });
   }
@@ -625,12 +625,39 @@ export class Room {
     this.videoEffect = effect;
     const out = this.outgoing.get('camera');
     if (!out) return;
-    const sent = effect ? await effect(out.raw).catch(() => out.raw) : out.raw;
+    const sent = await this.withEffect(out.raw, effect);
     const old = out.source$.value;
     out.source$.next(sent);
     out.pub.track = { mediaStreamTrack: sent, kind: 'video' };
     if (old !== out.raw && old !== sent) old.stop();
     this.emit(RoomEvent.LocalTrackPublished, out.pub, this.localParticipant);
+  }
+
+  /**
+   * The camera with a background effect, or the plain camera if the effect can't run. If the effect
+   * stops working later (a weak or missing graphics chip on some phones and PCs), the plain camera takes over
+   * instead of the picture going dark.
+   */
+  private async withEffect(raw: MediaStreamTrack, effect: VideoEffect | null) {
+    if (!effect) return raw;
+    // An effect that never finishes loading must not keep the camera off: after 10 s the plain camera
+    // goes out, and an effect that turns up later is shut down.
+    let late = false;
+    const pending = effect(raw).catch(() => raw);
+    const sent = await Promise.race([pending, new Promise<MediaStreamTrack>((r) => setTimeout(() => ((late = true), r(raw)), 10_000))]);
+    if (late) void pending.then((t) => t !== raw && t.stop());
+    if (sent === raw) return raw;
+    // The effect can shut its track down without any event, so check on it while it's the one being sent.
+    const watch = setInterval(() => {
+      const out = this.outgoing.get('camera');
+      if (!out || out.source$.value !== sent) return clearInterval(watch);
+      if (sent.readyState === 'live' || out.raw.readyState !== 'live') return;
+      clearInterval(watch);
+      out.source$.next(out.raw);
+      out.pub.track = { mediaStreamTrack: out.raw, kind: 'video' };
+      this.emit(RoomEvent.LocalTrackPublished, out.pub, this.localParticipant);
+    }, 2000);
+    return sent;
   }
 
   /** The raw camera track (before effects), for applying a new effect. */
@@ -651,7 +678,7 @@ export class Room {
     const out = this.outgoing.get(trackKind);
     if (!out) return;
     const raw = await this.capture(trackKind === 'mic' ? 'audio' : 'video');
-    const sent = trackKind === 'camera' && this.videoEffect ? await this.videoEffect(raw).catch(() => raw) : raw;
+    const sent = trackKind === 'camera' ? await this.withEffect(raw, this.videoEffect) : raw;
     if (trackKind === 'mic') raw.enabled = !out.pub.isMuted;
     const old = out.source$.value;
     out.source$.next(sent);
