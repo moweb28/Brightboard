@@ -1,17 +1,19 @@
 import { normalizeRoomCode } from '@classroom/protocol';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { ToastProvider } from './components/toast';
 import { Spinner } from './components/ui';
 import { NavContext, type Route } from './lib/nav';
 import { SettingsProvider } from './lib/settings';
 import { StoreProvider, useStore } from './lib/store';
 import { useLivePoll } from './lib/useLivePoll';
-import { Meeting } from './meeting/Meeting';
 import { Home } from './screens/Home';
 import { JoinPage } from './screens/Join';
 import { Onboarding } from './screens/Onboarding';
 import { SettingsPage } from './screens/Settings';
 import { SpacePage } from './screens/SpacePage';
+
+// The call screen (video, whiteboard sync) loads when you first join or start a call.
+const Meeting = lazy(() => import('./meeting/Meeting').then((m) => ({ default: m.Meeting })));
 
 export function App() {
   return (
@@ -70,6 +72,10 @@ function Screen({ route }: { route: Route }) {
     case 'settings':
       return <SettingsPage />;
     case 'meeting':
-      return <Meeting key={route.join.token} join={route.join} password={route.password} />;
+      return (
+        <Suspense fallback={<Spinner />}>
+          <Meeting key={route.join.token} join={route.join} password={route.password} />
+        </Suspense>
+      );
   }
 }

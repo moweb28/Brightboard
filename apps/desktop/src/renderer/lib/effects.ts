@@ -1,4 +1,3 @@
-import { BackgroundBlur, supportsBackgroundProcessors, VirtualBackground } from '@livekit/track-processors';
 import calm from '../assets/bg-calm.jpg';
 import classroom from '../assets/bg-classroom.jpg';
 import library from '../assets/bg-library.jpg';
@@ -129,9 +128,12 @@ export function backgroundImage(bg: Background): string | null {
   return null;
 }
 
+/** Same test the background engine uses, without loading it: WebGL2 plus a way to make a video track. */
 export const backgroundsSupported = () => {
   try {
-    return supportsBackgroundProcessors();
+    const canMakeTrack =
+      ('MediaStreamTrackGenerator' in window && 'MediaStreamTrackProcessor' in window) || typeof HTMLCanvasElement.prototype.captureStream === 'function';
+    return typeof OffscreenCanvas !== 'undefined' && typeof VideoFrame !== 'undefined' && !!document.createElement('canvas').getContext('webgl2') && canMakeTrack;
   } catch {
     return false;
   }
@@ -171,6 +173,7 @@ export function videoEffectFor(bg: Background): VideoEffect | null {
   const image = backgroundImage(bg);
   if (!image && bg !== 'blur' && bg !== 'blur-light') return null; // e.g. a deleted picture
   return async (track) => {
+    const { BackgroundBlur, VirtualBackground } = await import('@livekit/track-processors');
     const processor = image ? VirtualBackground(image) : BackgroundBlur(bg === 'blur-light' ? 6 : 14);
     // When the processor shuts down it signals its input's *device* to stop, which would end every copy
     // of the camera (and leave it unusable until restart). So it reads a relayed copy that has no device

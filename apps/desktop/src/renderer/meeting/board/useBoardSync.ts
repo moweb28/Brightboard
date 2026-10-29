@@ -1,6 +1,6 @@
 import { BOARD_TOPIC, isBoardDesign, VersionTracker, type BoardDesign, type BoardPacket } from '@classroom/protocol';
-import { CaptureUpdateAction, reconcileElements, restoreElements } from '@excalidraw/excalidraw';
 import type { BinaryFileData, BinaryFiles, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
+import { loadExcalidraw } from '../../lib/excalidraw';
 import { RoomEvent, type Participant, type Room } from '../../lib/rtc';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { isHost, isWaiting } from '../participants';
@@ -66,7 +66,9 @@ export function useBoardSync(room: Room, amHost: boolean, initialDesign: BoardDe
     [send],
   );
 
-  const applyRemote = useCallback((remote: unknown[]) => {
+  // Packets are applied in the order they arrive: they all wait on the same (already loaded) engine.
+  const applyRemote = useCallback(async (remote: unknown[]) => {
+    const { CaptureUpdateAction, reconcileElements, restoreElements } = await loadExcalidraw();
     const incoming = restoreElements(remote as Elements, null);
     tracker.current.mark(incoming);
     const local = api.current?.getSceneElementsIncludingDeleted() ?? store.current.elements;
@@ -150,7 +152,8 @@ export function useBoardSync(room: Room, amHost: boolean, initialDesign: BoardDe
       // Anything that arrived while the board was still loading goes in now (after Excalidraw's own init).
       // Snapshot it first: Excalidraw's first (empty) onChange may replace the store before the timeout runs.
       const early = { elements: store.current.elements, files: store.current.files };
-      setTimeout(() => {
+      setTimeout(async () => {
+        const { CaptureUpdateAction, reconcileElements } = await loadExcalidraw();
         if (api.current !== next) return;
         if (early.elements.length) {
           const merged = reconcileElements(next.getSceneElementsIncludingDeleted(), early.elements as never, next.getAppState() as never) as unknown as Elements;

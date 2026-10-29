@@ -28,7 +28,7 @@ import {
   WifiOff,
   type LucideIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { InviteBox } from '../components/InviteBox';
 import { Logo } from '../components/layout';
 import { useToast, useToastDismiss } from '../components/toast';
@@ -55,8 +55,11 @@ import { useRecording } from './useRecording';
 import { useTranscript } from './useTranscript';
 import { TranscriptPanel } from './TranscriptPanel';
 import { useRemote } from './useRemote';
-import { Board } from './board/Board';
+import { loadExcalidraw } from '../lib/excalidraw';
 import { useBoardSync } from './board/useBoardSync';
+
+// The whiteboard (and its engine) loads when it first opens.
+const Board = lazy(() => import('./board/Board').then((m) => ({ default: m.Board })));
 
 interface Props {
   join: JoinInfo;
@@ -89,7 +92,6 @@ export function RoomView({ join, choices, password }: Props) {
   const [devicesOpen, setDevicesOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [startedAt] = useState(Date.now());
-  const [, tick] = useState(0);
   const selfMuting = useRef(false);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -105,10 +107,10 @@ export function RoomView({ join, choices, password }: Props) {
   const tx = useTranscript(room, join, moderate);
   const [dontAskRecord, setDontAskRecord] = useState(false);
 
-  // Clock in the header.
+  // Once the call is up and the device is idle, fetch the whiteboard engine so the board opens instantly.
   useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(id);
+    const idle = window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 3000));
+    idle(() => void loadExcalidraw());
   }, []);
 
   // Publish mic/camera once connected and admitted (waiting guests can't publish yet).
@@ -264,7 +266,7 @@ export function RoomView({ join, choices, password }: Props) {
           <strong>{join.spaceTitle}</strong>
           <span className="chip-sep" aria-hidden />
           <span className="live-dot" aria-hidden />
-          <span dir="ltr">{formatDuration(Date.now() - startedAt)}</span>
+          <CallClock startedAt={startedAt} />
         </div>
         <span className="chip chip-code" dir="ltr">
           {formatRoomCode(join.roomName)}
@@ -319,6 +321,7 @@ export function RoomView({ join, choices, password }: Props) {
             remote={remote}
             board={
               meta.boardOpen ? (
+                <Suspense fallback={<div className="board board-loading" aria-busy="true" />}>
                 <Board
                   sync={boardSync}
                   title={join.spaceTitle}
@@ -327,6 +330,7 @@ export function RoomView({ join, choices, password }: Props) {
                   onClose={() => moderate({ action: 'board', value: false })}
                   onToggleLock={() => moderate({ action: 'boardLock', value: !meta.boardLocked })}
                 />
+                </Suspense>
               ) : undefined
             }
           />
@@ -515,4 +519,14 @@ function Caret({ label, open, onClick }: { label: string; open: boolean; onClick
       <ChevronUp size={13} strokeWidth={2.6} />
     </button>
   );
+}
+
+/** The call timer ticks on its own, so the rest of the call screen doesn't redraw every second. */
+function CallClock({ startedAt }: { startedAt: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <span dir="ltr">{formatDuration(now - startedAt)}</span>;
 }
